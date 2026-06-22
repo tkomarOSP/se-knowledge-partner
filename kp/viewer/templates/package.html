@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ package }} — Knowledge Artifacts{% endblock %}
+
+{% block breadcrumb %}
+<span class="nav-sep">/</span>
+<a href="/{{ package }}" class="nav-crumb">{{ package }}</a>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">{{ package }}</h1>
+
+<form method="get" action="/{{ package }}" class="filter-bar">
+  <input type="text" name="q" value="{{ q }}" placeholder="Search artifacts…">
+  <select name="type" onchange="this.form.submit()">
+    <option value="">All types</option>
+    {% for t in types %}
+    <option value="{{ t }}" {% if type_filter == t %}selected{% endif %}>{{ t }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Search</button>
+  {% if type_filter or q %}
+  <a href="/{{ package }}" style="font-size:.82rem;color:#64748b;text-decoration:none;padding:0.4rem 0.5rem;">✕ Clear</a>
+  {% endif %}
+</form>
+
+<p class="result-count">
+  {{ artifacts|length }} artifact{% if artifacts|length != 1 %}s{% endif %}
+  {% if type_filter %} — type: <strong>{{ type_filter }}</strong>{% endif %}
+  {% if q %} — matching: <strong>{{ q }}</strong>{% endif %}
+</p>
+
+{% if not artifacts %}
+<div class="card">
+  <p style="color:#64748b;margin:0">No artifacts found.</p>
+</div>
+{% else %}
+{% for a in artifacts %}
+<div class="card">
+  <div class="artifact-row">
+    <a href="/{{ package }}/{{ a.artifact_id }}" class="artifact-link">{{ a.name }}</a>
+    <span class="type-tag">{{ a.type }}</span>
+    <span class="updated-at">{{ a.updated_at[:10] if a.updated_at else "" }}</span>
+  </div>
+  {% if a.tags %}
+  <div style="margin-top:.35rem">
+    {% for tag in a.tags %}
+    <span class="count-badge">{{ tag }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

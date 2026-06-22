@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Knowledge Artifacts{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Knowledge Packages</h1>
+
+{% if error %}
+<div class="error-banner">{{ error }}</div>
+{% endif %}
+
+{% if not packages %}
+  {% if not error %}
+  <div class="card">
+    <p style="color:#64748b;margin:0">No packages found. The repository may be empty or not yet cloned.</p>
+  </div>
+  {% endif %}
+{% else %}
+  <p class="page-subtitle">{{ packages|length }} package{% if packages|length != 1 %}s{% endif %}</p>
+  {% for pkg in packages %}
+  <div class="card">
+    <div class="package-row">
+      <a href="/{{ pkg.name }}" class="package-link">{{ pkg.name }}</a>
+      <div class="type-pills">
+        {% for type, count in pkg.type_counts.items()|sort %}
+        <span class="count-badge">{{ type }} &times;{{ count }}</span>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+{% endif %}
+{% endblock %}

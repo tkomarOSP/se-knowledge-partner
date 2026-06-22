@@ -1,0 +1,269 @@
+routine_def:
+  # ── Identity ──────────────────────────────────────────────────────────────
+  id: fmea_from_functional_chain
+  name: "FMEA from Functional Chain"
+  version: "1.0"
+  description: >
+    Generates a structured FMEA report artifact by extracting all functional
+    exchanges from a named functional chain and analyzing each for failure
+    modes, local effects, end effects, severity, occurrence, detection,
+    RPN scores, and recommended actions. Saves result as a text artifact
+    to the knowledge repo and logs a milestone entry to the work log.
+  author: SE Knowledge Partner
+  tags: [fmea, functional-chain, analysis, safety, csid-stage-3]
+  proven_by: Road Grader Steering Control session 2026-06-16 (artifact 09e17c34)
+  proven_again: Road Grader Camber Control session 2026-06-17 (artifact 56796e93)
+
+  # ── Variables ─────────────────────────────────────────────────────────────
+  variables:
+    - name: functional_chain_name
+      type: string
+      required: true
+      description: "Name of the functional chain to analyze"
+      example: "Steering Control"
+
+    - name: functional_chain_phase
+      type: string
+      required: false
+      default: "LA"
+      description: "Model phase to search for the chain (SA, LA, PA)"
+      example: "LA"
+
+    - name: artifact_package
+      type: string
+      required: true
+      description: "Target artifact package in the knowledge repo"
+      example: "Road_Grader_Front_Axel_Assembly"
+
+    - name: output_branch
+      type: string
+      required: false
+      default: "main"
+      description: "Knowledge repo branch for artifact output"
+
+    - name: overwrite_existing
+      type: boolean
+      required: false
+      default: false
+      description: "If true, overwrites an existing FMEA artifact for this chain"
+
+  # ── Resources ─────────────────────────────────────────────────────────────
+  resources:
+    - id: capella_model
+      type: capella_model_repo
+      description: "Capella model repository containing the functional chain"
+      required: true
+      branch: master
+      mcp_tool: capella-fabric
+      validation:
+        require_object:
+          - type: FunctionalChain
+            name: "{{ functional_chain_name }}"
+            phase: "{{ functional_chain_phase }}"
+
+    - id: knowledge_repo
+      type: artifact_repo
+      description: "Knowledge repository for artifact input and output"
+      required: true
+      branch: "{{ output_branch }}"
+      mcp_tool: artifact-repo
+
+  # ── Inputs ────────────────────────────────────────────────────────────────
+  inputs:
+    - name_pattern: "FMEA — *"
+      package: "{{ artifact_package }}"
+      required: false
+      description: >
+        Any existing FMEA artifacts in this package — used to cross-reference
+        RPN scores across chains and check for shared components with elevated
+        combined risk
+      bind_as: prior_fmea_artifacts
+
+    - name_pattern: "Work Log — *"
+      package: "{{ artifact_package }}"
+      required: false
+      description: "Project work log for milestone entry on completion"
+      bind_as: work_log
+
+  # ── Pre-flight checks ──────────────────────────────────────────────────────
+  pre_flight:
+    - check: resource_accessible
+      resource: capella_model
+      error: "Cannot access Capella model repo. Verify PAT and repo URL in system prompt."
+
+    - check: resource_accessible
+      resource: knowledge_repo
+      error: "Cannot access knowledge repo on branch {{ output_branch }}."
+
+    - check: object_exists
+      resource: capella_model
+      object_type: FunctionalChain
+      object_name: "{{ functional_chain_name }}"
+      phase: "{{ functional_chain_phase }}"
+      error: >
+        Functional chain '{{ functional_chain_name }}' not found in model
+        phase {{ functional_chain_phase }}. Check chain name and phase.
+
+    - check: no_duplicate_output
+      output_name: "FMEA — {{ functional_chain_name }}"
+      bypass_if: "{{ overwrite_existing }}"
+      error: >
+        FMEA for '{{ functional_chain_name }}' already exists.
+        Set overwrite_existing: true to replace it.
+
+  # ── Outputs ───────────────────────────────────────────────────────────────
+  outputs:
+    - name: "FMEA — {{ functional_chain_name }}"
+      type: text
+      package: "{{ artifact_package }}"
+      branch: "{{ output_branch }}"
+      required: true
+      description: >
+        Structured FMEA table with S/O/D/RPN scores, recommended actions,
+        top RPN items summary, and identified model gaps
+      tags:
+        - fmea
+        - functional-chain
+        - "{{ functional_chain_name | lower | replace(' ', '-') }}"
+        - analysis
+      bind_as: fmea_artifact
+
+    - name: "Work Log Entry — FMEA {{ functional_chain_name }}"
+      type: log_entry
+      package: "{{ artifact_package }}"
+      entry_type: milestone
+      log_book: "{{ work_log.artifact_id }}"
+      required: false
+      description: >
+        Milestone entry recording chain analyzed, row count, artifact ID,
+        top 3 RPN items, and gaps identified
+
+  # ── Prompt template ───────────────────────────────────────────────────────
+  prompt_template: |
+    You are the SE Knowledge Partner operating in FMEA analysis mode.
+
+    ## Inputs
+    - Functional chain: {{ functional_chain_name }}
+    - Phase: {{ functional_chain_phase }}
+    - Output package: {{ artifact_package }} (branch: {{ output_branch }})
+    {% if prior_fmea_artifacts %}
+    - Prior FMEAs in this package: {{ prior_fmea_artifacts | length }}
+      Cross-reference components and RPN scores where chains share components.
+    {% endif %}
+
+    The fabric for '{{ functional_chain_name }}' has been generated.
+    Proceed through the following steps in order.
+
+    ## Step 1 — Extract exchange inventory
+    From the fabric identify every FunctionalExchange in the chain.
+    For each record:
+    - Exchange name
+    - Source function and its allocated component
+    - Target function and its allocated component
+    - Exchange type (hydraulic, mechanical, electrical, control signal — infer from name)
+
+    ## Step 2 — Generate FMEA rows
+    For each exchange produce one or more failure mode rows:
+
+    | # | Item (Component) | Function | Exchange | Failure Mode | Local Effect |
+    End Effect | S | O | D | RPN | Recommended Action |
+
+    Severity guidance:
+    - Loss of primary function (steering, braking, structural) = S 9-10
+    - Degraded primary function = S 6-8
+    - Loss of secondary function (camber, alignment) = S 5-7
+    - Maintenance / lifecycle degradation = S 2-4
+
+    Occurrence guidance:
+    - Wear items without maintenance schedule = O 5-6
+    - Hydraulic seals in service = O 3-4
+    - Structural fracture in normal use = O 1-2
+
+    Detection guidance:
+    - Immediate operator sensation = D 2-3
+    - Gradual onset, detectable by inspection = D 4-5
+    - Internal failure, no external indication = D 6-8
+    - Undetectable without disassembly = D 9-10
+
+    {% if prior_fmea_artifacts %}
+    Cross-reference: where this chain shares components with prior FMEAs,
+    note cumulative risk and whether combined RPN warrants escalated action.
+    {% endif %}
+
+    ## Step 3 — Identify gaps
+    Report any:
+    - Functions with no allocated component (traceability gap)
+    - Exchanges where property values would improve S/O/D scoring
+    - Component interactions across chains not captured in this FMEA
+    - Missing failure modes identified through diagnostic reasoning
+
+    ## Step 4 — Write FMEA artifact
+    Write the complete FMEA as artifact named
+    'FMEA — {{ functional_chain_name }}' to package '{{ artifact_package }}'
+    on branch '{{ output_branch }}'. Include:
+    - Header with chain name, UUID, date, phase, traceability note
+    - Full FMEA table
+    - Top 5 highest RPN items summary
+    - Gaps identified section
+    - Recommended next steps section
+
+    ## Step 5 — Log milestone
+    {% if work_log %}
+    Add a milestone log entry to work log '{{ work_log.artifact_id }}' recording:
+    - Chain analyzed and UUID
+    - Number of exchanges processed and FMEA rows generated
+    - Artifact ID of the saved FMEA
+    - Top 3 RPN items
+    - Gaps identified count
+    {% endif %}
+
+    ## Step 6 — Report to engineer
+    Summarize:
+    - Total FMEA rows generated
+    - Top 3 highest RPN items with values
+    - Critical gaps (missing allocations, unscored property values)
+    - Recommended next steps
+
+  # ── Post-execution validation ──────────────────────────────────────────────
+  post_execution:
+    - check: output_exists
+      output: fmea_artifact
+      error: "FMEA artifact was not written. Check knowledge repo session."
+
+    - report:
+        summary_fields:
+          - fmea_row_count
+          - top_3_rpn_items
+          - gaps_count
+          - artifact_id: "{{ fmea_artifact.artifact_id }}"
+          - artifact_branch: "{{ output_branch }}"
+
+  # ── Execution history ──────────────────────────────────────────────────────
+  executions:
+    - date: 2026-06-16
+      chain: "Steering Control"
+      phase: LA
+      rows_generated: 21
+      top_rpn: 140
+      artifact_id: 09e17c34-05ca-488e-b251-52c6e6e6387f
+      gaps_found: 4
+      notes: >
+        First execution — proved the routine pattern. All 13 functional
+        exchanges analyzed. Hydraulic supply degradation scored highest
+        (RPN 140). Cylinder seizure items RPN 100 as single points of
+        failure. Camber/steering hydraulic competition identified as
+        cross-chain gap.
+
+    - date: 2026-06-17
+      chain: "Camber Control"
+      phase: LA
+      rows_generated: 21
+      top_rpn: 105
+      artifact_id: 56796e93-be93-4b08-9595-81267da34f17
+      gaps_found: 5
+      notes: >
+        Second execution — single message trigger after artifact store
+        established. Cross-chain analysis with Steering Control produced
+        automatically. Shared component risk (knuckles, hydraulic system)
+        identified. Engineer reaction: "shocked on how well that worked."
+        Validated context engineering thesis (OBS-013, OBS-014).

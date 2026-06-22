@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ meta.name }} — {{ package }}{% endblock %}
+
+{% block breadcrumb %}
+<span class="nav-sep">/</span>
+<a href="/{{ package }}" class="nav-crumb">{{ package }}</a>
+<span class="nav-sep">/</span>
+<span class="nav-crumb">{{ meta.name }}</span>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">{{ meta.name }}</h1>
+
+<div class="meta-bar">
+  <span>log_book</span>
+  <span>Updated {{ meta.updated_at | date }}</span>
+  {% if meta.tags %}<span>{% for t in meta.tags %}#{{ t }} {% endfor %}</span>{% endif %}
+  <a href="/{{ package }}/{{ meta.artifact_id }}/versions">Version history</a>
+</div>
+
+{% if header_html %}
+<div class="card artifact-content" style="margin-bottom:1.25rem">{{ header_html|safe }}</div>
+{% endif %}
+
+<!-- Entry type filter pills -->
+<div class="logbook-summary">
+  <a href="/{{ package }}/{{ meta.artifact_id }}"
+     class="type-filter-btn filter-all {% if not filter_type %}active{% endif %}">
+    All ({{ type_counts.values()|sum }})
+  </a>
+  {% for etype, count in type_counts.items()|sort %}
+  <a href="/{{ package }}/{{ meta.artifact_id }}?filter_type={{ etype }}"
+     class="type-filter-btn filter-{{ etype }} {% if filter_type == etype %}active{% endif %}">
+    {{ etype }} ({{ count }})
+  </a>
+  {% endfor %}
+</div>
+
+{% if not entries %}
+<div class="card">
+  <p style="color:#64748b;margin:0">
+    {% if filter_type %}No <strong>{{ filter_type }}</strong> entries found.{% else %}No entries found.{% endif %}
+  </p>
+</div>
+{% endif %}
+
+{% for entry in entries %}
+<div class="entry-card {{ entry.entry_type }}">
+  <div class="entry-meta">
+    <span class="entry-badge {{ badge_class(entry.entry_type) }}">{{ entry.entry_type }}</span>
+    <span class="entry-ts">{{ entry.timestamp_str }}</span>
+    {% if entry.author %}<span class="entry-author">{{ entry.author }}</span>{% endif %}
+  </div>
+  <div class="entry-body">{{ entry.body_html|safe }}</div>
+</div>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,18 @@
+[project]
+name = "kp-prompt-library"
+version = "0.1.0"
+description = "Prompt Library MCP server — Jinja2-rendered prompt template management"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp[cli]",
+    "Jinja2>=3.0",
+    "pydantic>=2.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = [".."]
+include = ["prompt_library*"]

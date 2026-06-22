@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{{ meta.name }} — {{ package }}{% endblock %}
+
+{% block breadcrumb %}
+<span class="nav-sep">/</span>
+<a href="/{{ package }}" class="nav-crumb">{{ package }}</a>
+<span class="nav-sep">/</span>
+<span class="nav-crumb">{{ meta.name }}</span>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">{{ meta.name }}</h1>
+
+<div class="meta-bar">
+  <span>{{ meta.type }}</span>
+  <span>Updated {{ meta.updated_at | date }}</span>
+  {% if meta.tags %}<span>{% for t in meta.tags %}#{{ t }} {% endfor %}</span>{% endif %}
+  <a href="/{{ package }}/{{ meta.artifact_id }}/versions">Version history</a>
+</div>
+
+<div class="card artifact-content">
+  {{ content_html|safe }}
+</div>
+{% endblock %}

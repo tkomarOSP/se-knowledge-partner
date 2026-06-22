@@ -1,0 +1,18 @@
+{
+  "artifact_id": "cd58ea00-8a98-4629-a0e4-6224e2c7587f",
+  "name": "routine_def: fmea_from_functional_chain v1.0",
+  "type": "routine_def",
+  "package_name": "routines",
+  "created_at": "2026-06-17T19:40:35.168088Z",
+  "updated_at": "2026-06-17T19:40:35.168137Z",
+  "tags": [
+    "routine_def",
+    "fmea",
+    "functional-chain",
+    "analysis",
+    "safety",
+    "csid"
+  ],
+  "source_tool": "SE Knowledge Partner",
+  "lineage": []
+}

@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}{{ meta.name }} — {{ package }}{% endblock %}
+
+{% block breadcrumb %}
+<span class="nav-sep">/</span>
+<a href="/{{ package }}" class="nav-crumb">{{ package }}</a>
+<span class="nav-sep">/</span>
+<span class="nav-crumb">{{ meta.name }}</span>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">{{ routine.name or meta.name }}</h1>
+
+<div class="meta-bar">
+  <span>routine_def</span>
+  {% if routine.version %}<span>v{{ routine.version }}</span>{% endif %}
+  {% if routine.author %}<span>{{ routine.author }}</span>{% endif %}
+  <span>Updated {{ meta.updated_at | date }}</span>
+  <a href="/{{ package }}/{{ meta.artifact_id }}/versions">Version history</a>
+</div>
+
+{% if routine.parse_error %}
+<div class="error-banner">YAML parse error: {{ routine.parse_error }}</div>
+{% endif %}
+
+<!-- Identity -->
+<div class="card">
+  <div class="routine-identity">
+    <span class="ri-label">ID</span><code style="font-size:.82rem">{{ routine.id }}</code>
+    {% if routine.description %}
+    <span class="ri-label">Description</span><span class="ri-value">{{ routine.description }}</span>
+    {% endif %}
+  </div>
+  {% if routine.tags %}
+  <div class="tag-list">{% for tag in routine.tags %}<span class="tag">{{ tag }}</span>{% endfor %}</div>
+  {% endif %}
+</div>
+
+<!-- Variables -->
+{% if routine.variables %}
+<p class="section-label">Variables</p>
+<div class="card" style="padding:0.75rem 0">
+  <table class="var-table">
+    <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Default</th><th>Description</th></tr></thead>
+    <tbody>
+    {% for v in routine.variables %}
+    <tr>
+      <td><code style="font-size:.8rem">{{ v.name }}</code></td>
+      <td><span style="font-size:.8rem;color:#475569">{{ v.type or "string" }}</span></td>
+      <td>
+        {% if v.required %}<span class="req-badge">required</span>
+        {% else %}<span class="opt-badge">optional</span>{% endif %}
+      </td>
+      <td style="color:#64748b;font-size:.8rem">{{ v.default or "–" }}</td>
+      <td style="font-size:.82rem;color:#334155">{{ v.description or "" }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Resources -->
+{% if routine.resources %}
+<p class="section-label">Resources</p>
+<div class="card" style="padding:0.75rem 0">
+  <table class="var-table">
+    <thead><tr><th>ID</th><th>Type</th><th>MCP Tool</th><th>Required</th><th>Description</th></tr></thead>
+    <tbody>
+    {% for r in routine.resources %}
+    <tr>
+      <td><code style="font-size:.8rem">{{ r.id }}</code></td>
+      <td style="font-size:.8rem">{{ r.type }}</td>
+      <td style="font-size:.8rem;color:#475569">{{ r.mcp_tool or "–" }}</td>
+      <td>
+        {% if r.required %}<span class="req-badge">required</span>
+        {% else %}<span class="opt-badge">optional</span>{% endif %}
+      </td>
+      <td style="font-size:.82rem;color:#334155">{{ r.description or "" }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Inputs -->
+{% if routine.inputs %}
+<p class="section-label">Inputs</p>
+<div class="card" style="padding:0.75rem 0">
+  <table class="var-table">
+    <thead><tr><th>Pattern</th><th>Package</th><th>Bind As</th><th>Required</th><th>Description</th></tr></thead>
+    <tbody>
+    {% for inp in routine.inputs %}
+    <tr>
+      <td style="font-size:.8rem;font-family:monospace">{{ inp.artifact_id_pattern or "–" }}</td>
+      <td style="font-size:.8rem">{{ inp.package or "–" }}</td>
+      <td><code style="font-size:.78rem">{{ inp.bind_as or "–" }}</code></td>
+      <td>
+        {% if inp.required %}<span class="req-badge">required</span>
+        {% else %}<span class="opt-badge">optional</span>{% endif %}
+      </td>
+      <td style="font-size:.82rem;color:#334155">{{ inp.description or "" }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Outputs -->
+{% if routine.outputs %}
+<p class="section-label">Outputs</p>
+<div class="card" style="padding:0.75rem 0">
+  <table class="output-table">
+    <thead><tr><th>Name</th><th>Type</th><th>Package</th><th>Required</th><th>Description</th></tr></thead>
+    <tbody>
+    {% for out in routine.outputs %}
+    <tr>
+      <td style="font-size:.82rem;font-family:monospace">{{ out.name or "–" }}</td>
+      <td style="font-size:.8rem">{{ out.type or "–" }}</td>
+      <td style="font-size:.8rem">{{ out.package or "–" }}</td>
+      <td>
+        {% if out.required %}<span class="req-badge">required</span>
+        {% else %}<span class="opt-badge">optional</span>{% endif %}
+      </td>
+      <td style="font-size:.82rem;color:#334155">{{ out.description or "" }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Pre-flight checks -->
+{% if routine.pre_flight %}
+<p class="section-label">Pre-flight Checks</p>
+<div class="card">
+  {% for chk in routine.pre_flight %}
+  <div class="check-item">
+    <span class="check-type">{{ chk.check }}</span>
+    <div>
+      <span style="font-size:.83rem">{{ chk.resource or chk.output or "" }}</span>
+      {% if chk.error %}
+      <div class="check-error">Error: {{ chk.error }}</div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Prompt template -->
+{% if routine.prompt_template %}
+<p class="section-label">Prompt Template</p>
+<div class="prompt-block">{{ routine.prompt_template }}</div>
+{% endif %}
+
+<!-- Post-execution -->
+{% if routine.post_execution %}
+<p class="section-label">Post-execution Validation</p>
+<div class="card">
+  {% for chk in routine.post_execution %}
+  <div class="check-item">
+    <span class="check-type">{{ chk.check }}</span>
+    <div>
+      <span style="font-size:.83rem">{{ chk.output or chk.resource or "" }}</span>
+      {% if chk.error %}
+      <div class="check-error">Error: {{ chk.error }}</div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}

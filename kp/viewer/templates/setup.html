@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Setup — Knowledge Artifacts{% endblock %}
+
+{% block content %}
+<div style="max-width:520px;margin:3rem auto">
+  <h1 class="page-title">Add a Repository</h1>
+  <p style="color:#64748b;margin-bottom:1.5rem;font-size:.9rem">
+    Enter a GitHub repository to browse. Your PAT is your access control — the
+    viewer can only see what that token can read on GitHub. This repo is added
+    to your browser session and stays isolated from anyone else using this site.
+  </p>
+
+  {% if error %}
+  <div class="error-banner">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/setup" class="card" style="display:flex;flex-direction:column;gap:1rem">
+    <div>
+      <label style="font-size:.82rem;font-weight:600;color:#374151;display:block;margin-bottom:.35rem">
+        Repository URL
+      </label>
+      <input type="text" name="repo_url" value="{{ repo_url or '' }}"
+             placeholder="https://github.com/owner/repo"
+             style="width:100%;padding:.45rem .75rem;border:1px solid #d1d5db;border-radius:6px;font-size:.875rem;outline:none"
+             required>
+    </div>
+
+    <div>
+      <label style="font-size:.82rem;font-weight:600;color:#374151;display:block;margin-bottom:.35rem">
+        GitHub PAT
+        <span style="font-weight:400;color:#9ca3af">(leave blank for public repos)</span>
+      </label>
+      <input type="password" name="pat"
+             placeholder="ghp_… (optional)"
+             style="width:100%;padding:.45rem .75rem;border:1px solid #d1d5db;border-radius:6px;font-size:.875rem;font-family:monospace;outline:none">
+      <p style="font-size:.75rem;color:#9ca3af;margin:.35rem 0 0">
+        Held only in your session's server-side memory — never written to disk, never sent anywhere except GitHub.
+      </p>
+    </div>
+
+    <div>
+      <label style="font-size:.82rem;font-weight:600;color:#374151;display:block;margin-bottom:.35rem">
+        Branch
+      </label>
+      <input type="text" name="branch" value="{{ branch or 'main' }}"
+             style="width:200px;padding:.45rem .75rem;border:1px solid #d1d5db;border-radius:6px;font-size:.875rem;outline:none">
+    </div>
+
+    <div style="display:flex;gap:.75rem;margin-top:.25rem">
+      <button type="submit"
+              style="background:#1e40af;color:white;border:none;padding:.5rem 1.25rem;border-radius:6px;font-size:.875rem;font-weight:500;cursor:pointer">
+        Connect &amp; Clone
+      </button>
+      <span style="font-size:.8rem;color:#9ca3af;align-self:center">
+        First clone may take a few seconds.
+      </span>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,16 @@
+{
+  "artifact_id": "b8f58379-8823-4753-98f2-cfc54919f4bf",
+  "name": "SE Knowledge Partner — Tooling Issues Log",
+  "type": "log_book",
+  "package_name": "knowledge_partner_issues",
+  "created_at": "2026-06-18T13:39:23.269937Z",
+  "updated_at": "2026-06-18T13:39:23.269988Z",
+  "tags": [
+    "issues",
+    "tooling",
+    "capella-fabric",
+    "artifact-repo"
+  ],
+  "source_tool": "add_log_entry",
+  "lineage": []
+}

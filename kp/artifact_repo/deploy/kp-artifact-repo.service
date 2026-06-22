@@ -1,0 +1,17 @@
+[Unit]
+Description=KP Knowledge Repository MCP Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/knowledge_partner
+Environment=KP_VIEWER_BASE_URL=https://artifacts.innovatingwithcapella.com
+ExecStart=/opt/knowledge_partner/.venv/bin/python -m artifact_repo
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/kp-artifact-repo/mcp-access.log
+StandardError=append:/var/log/kp-artifact-repo/mcp-error.log
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,23 @@
+[Unit]
+Description=KP Artifact Viewer Web App
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/knowledge_partner
+Environment=KP_VIEWER_PORT=8080
+Environment=KP_VIEWER_BASE_DIR=/var/lib/kp-viewer
+Environment=KP_VIEWER_SESSION_TTL=86400
+# Generate once with: python -c "import secrets; print(secrets.token_hex(32))"
+# and paste the value below. If left unset, a random secret is generated at
+# each process start, which logs out every visitor on every restart/deploy.
+Environment=KP_VIEWER_SESSION_SECRET=CHANGE_ME_GENERATE_A_RANDOM_SECRET
+ExecStart=/opt/knowledge_partner/.venv/bin/python -m viewer
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/kp-viewer/access.log
+StandardError=append:/var/log/kp-viewer/error.log
+
+[Install]
+WantedBy=multi-user.target
