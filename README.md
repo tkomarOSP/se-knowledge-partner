@@ -12,8 +12,12 @@ model access via a separate `capella-fabric` MCP server.
 - `kp/prompt_library/` — MCP server for Jinja2 prompt_def templates
 - `kp/session_manager/` — MCP server for structured session state
 - `kp/kp_agent/` — LangGraph-based agent orchestrator
-- `packages/` — the actual knowledge-artifact data (issue logs, routine definitions) served by `artifact_repo`
 - `docs/SE_Knowledge_Partner_System_Prompt_v3.md` — the system prompt that drives the SE Knowledge Partner agent across these MCP tools
+
+This repo is code-only — it has no `packages/` knowledge-artifact data of its own.
+The log book, issue tracking, and routine library live in the original
+`knowledge_partner` repo, which `artifact_repo`'s `clone_knowledge_repo` should
+continue to point at.
 
 ## Getting started
 
