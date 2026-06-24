@@ -25,6 +25,7 @@ import tempfile
 import uuid
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
@@ -68,6 +69,14 @@ def _inject_pat(url: str, pat: str) -> str:
     """Embed PAT into an HTTPS URL: https://... → https://oauth2:{pat}@..."""
     scheme, rest = url.split("://", 1)
     return f"{scheme}://oauth2:{pat}@{rest}"
+
+
+def _is_gitlab_host(url: str) -> bool:
+    """GitLab instances enforcing SSO (e.g. code.siemens.com) reject PAT-in-URL
+    basic auth with a redirect to the SSO login page. They accept the PAT via
+    the PRIVATE-TOKEN header instead, so those hosts need different handling."""
+    hostname = urlparse(url).hostname or ""
+    return "gitlab" in hostname or hostname == "code.siemens.com"
 
 
 def _scrub_pat(text: str, pat: str) -> str:
@@ -126,28 +135,37 @@ mcp = FastMCP(
 
 @mcp.tool()
 def clone_knowledge_repo(remote_url: str, pat: str, branch: str = "main") -> dict:
-    """Clone a GitHub knowledge repository and start a session.
+    """Clone a knowledge repository (GitHub or GitLab) and start a session.
 
     Call this first. Clones the repo to a temporary directory on the server
     so all existing artifacts are available for reading and writing.
     Returns a session_id required by all subsequent tools.
     Call cleanup_session when the activity is complete.
 
+    GitLab hosts (e.g. code.siemens.com) authenticate via the PRIVATE-TOKEN
+    header to bypass SSO-redirect-on-basic-auth; GitHub uses PAT-in-URL.
+
     Args:
-        remote_url: HTTPS URL of the GitHub repo (e.g. https://github.com/owner/repo)
-        pat: GitHub Personal Access Token with repo read/write access
+        remote_url: HTTPS URL of the repo (e.g. https://github.com/owner/repo
+            or https://code.siemens.com/group/repo)
+        pat: Personal Access Token with repo read/write access
         branch: Branch to clone (default: main)
     """
     session_id = uuid.uuid4().hex
     session_dir = _SESSION_BASE / session_id
     session_dir.mkdir(parents=True, exist_ok=True)
 
-    auth_url = _inject_pat(remote_url, pat)
-    result = subprocess.run(
-        ["git", "clone", "--branch", branch, auth_url, str(session_dir)],
-        capture_output=True,
-        text=True,
-    )
+    if _is_gitlab_host(remote_url):
+        # PRIVATE-TOKEN header auth bypasses GitLab's SSO-redirect-on-basic-auth.
+        clone_cmd = [
+            "git", "clone", "--branch", branch,
+            "-c", f"http.extraHeader=PRIVATE-TOKEN: {pat}",
+            remote_url, str(session_dir),
+        ]
+    else:
+        clone_cmd = ["git", "clone", "--branch", branch, _inject_pat(remote_url, pat), str(session_dir)]
+
+    result = subprocess.run(clone_cmd, capture_output=True, text=True)
 
     if result.returncode != 0:
         shutil.rmtree(session_dir, ignore_errors=True)
@@ -155,6 +173,13 @@ def clone_knowledge_repo(remote_url: str, pat: str, branch: str = "main") -> dic
 
     subprocess.run(["git", "-C", str(session_dir), "config", "user.name", "KP Artifact Repo"], capture_output=True)
     subprocess.run(["git", "-C", str(session_dir), "config", "user.email", "kp@repo"], capture_output=True)
+
+    if _is_gitlab_host(remote_url):
+        # Persist the header so later pushes (which reuse the clean remote URL) authenticate too.
+        subprocess.run(
+            ["git", "-C", str(session_dir), "config", "http.extraHeader", f"PRIVATE-TOKEN: {pat}"],
+            capture_output=True,
+        )
 
     store = GitStore(session_dir)
     _sessions[session_id] = store

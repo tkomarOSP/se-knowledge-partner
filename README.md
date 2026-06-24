@@ -30,6 +30,27 @@ pip install -e kp/artifact_repo -e kp/prompt_library -e kp/session_manager -e kp
 See each subpackage's own docs for running it (e.g. `kp/viewer/deploy/DEPLOY.md`,
 `kp/artifact_repo/deploy/DEPLOY.md` for production deployment).
 
+## Updating the droplet
+
+Both services run from the same clone at `/opt/knowledge_partner` on the
+Digital Ocean droplet. After pushing new code:
+
+```bash
+cd /opt/knowledge_partner
+git pull
+sudo .venv/bin/pip install -e kp/artifact_repo -e kp/viewer   # only if dependencies changed
+sudo systemctl restart kp-artifact-repo
+sudo systemctl restart kp-viewer
+```
+
+- `kp-artifact-repo` serves `repo.innovatingwithcapella.com` (port 8002)
+- `kp-viewer` serves `artifacts.innovatingwithcapella.com` (port 8080)
+
+Restarting `kp-viewer` does **not** log out visitors as long as
+`KP_VIEWER_SESSION_SECRET` is fixed in `kp-viewer.service` — see
+`kp/viewer/deploy/DEPLOY.md` Step 4. Full setup and troubleshooting for each
+service lives in its own `deploy/DEPLOY.md`.
+
 ## History
 
 This repo was split off from an earlier `knowledge_partner` repo that mixed this
