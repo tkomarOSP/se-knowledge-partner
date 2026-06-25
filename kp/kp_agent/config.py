@@ -13,10 +13,12 @@ from typing import Optional
 # ---------------------------------------------------------------------------
 
 MCP_SERVERS: dict[str, str] = {
-    "artifact_repo":   os.environ.get("KP_ARTIFACT_REPO_URL",   "https://repo.innovatingwithcapella.com/mcp"),
-    "prompt_library":  os.environ.get("KP_PROMPT_LIBRARY_URL",  "http://localhost:8003/mcp"),
-    "session_manager": os.environ.get("KP_SESSION_MANAGER_URL", "http://localhost:8004/mcp"),
-    "capella_fabric":  os.environ.get("KP_CAPELLA_FABRIC_URL",  "https://mcp.innovatingwithcapella.com/mcp"),
+    "artifact_repo":      os.environ.get("KP_ARTIFACT_REPO_URL",      "https://repo.innovatingwithcapella.com/mcp"),
+    "prompt_library":     os.environ.get("KP_PROMPT_LIBRARY_URL",     "http://localhost:8003/mcp"),
+    "session_manager":    os.environ.get("KP_SESSION_MANAGER_URL",    "http://localhost:8004/mcp"),
+    "workspace_manager":  os.environ.get("KP_WORKSPACE_MANAGER_URL",  "http://localhost:8005/mcp"),
+    "project_artifact_repo": os.environ.get("KP_PROJECT_ARTIFACT_REPO_URL", "http://localhost:8006/mcp"),
+    "capella_fabric":     os.environ.get("KP_CAPELLA_FABRIC_URL",     "https://mcp.innovatingwithcapella.com/mcp"),
 }
 
 

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{{ branch_name }} — workspace{% endblock %}
+
+{% block breadcrumb %}
+<span class="nav-sep">/</span>
+<span class="nav-crumb">workspace</span>
+<span class="nav-sep">/</span>
+<span class="nav-crumb">{{ branch_name }}</span>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">{{ branch_name }}</h1>
+
+{% set status = workspace.status %}
+{% set manifest = workspace.index %}
+
+<div class="meta-bar">
+  {% if status %}
+  <span class="entry-badge {{ badge_class(status.status) }}">{{ status.status }}</span>
+  <span>Updated {{ status.updated_at | date }}</span>
+  {% endif %}
+  {% if manifest %}
+  <span>Routine: {{ manifest.routine_id }}</span>
+  {% if manifest.engineer %}<span>Engineer: {{ manifest.engineer }}</span>{% endif %}
+  <span>Created {{ manifest.created_at | date }}</span>
+  {% endif %}
+</div>
+
+{% if not manifest %}
+<div class="error-banner">No index.json found on this branch — not a workspace branch?</div>
+{% elif not manifest.outputs %}
+<p class="page-subtitle">No outputs written yet.</p>
+{% else %}
+<div class="section-label">Outputs</div>
+{% for o in manifest.outputs %}
+<div class="card package-row">
+  <a class="artifact-link" href="/{{ o.package }}/{{ o.artifact_id }}">{{ o.name }}</a>
+  <span class="type-tag">{{ o.type }}</span>
+  <span class="updated-at">{{ o.written_at | date }}</span>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

@@ -1,21 +1,30 @@
-"""MCP tool implementations for artifact repository CRUD.
+"""MCP tool implementations for the knowledge_repo (4 Knowledge-layer types).
 
-These functions are registered with FastMCP in server.py.
-They delegate all persistence to FilesystemStore / GitStore.
+These functions are registered with FastMCP in server.py. All 4 types
+(observation, decision, lesson_learned, routine_def) are persisted via
+IndexedEntryStore (see store/indexed_entries.py), reached through GitStore's
+``entries`` attribute — never through the old per-artifact-directory
+FilesystemStore layout. The other 9 artifact types (table, yaml, text, html,
+arcadia_fabric, session_summary, prompt_def, prompt, json) are no longer
+supported here; they live in workspace_manager.
 """
 
 from __future__ import annotations
 
-import json
-from datetime import datetime, timezone
 from typing import Any, Optional
 
 from jinja2 import Template
 
 from artifact_repo.store.git_store import GitStore
-from artifact_repo.types.base import ArtifactMetadata
-from artifact_repo.types.common import PromptArtifact, PromptContent, PromptDefContent
-from artifact_repo.types.registry import get_artifact_class, list_registered_types
+
+_KNOWLEDGE_TYPES = {"observation", "decision", "lesson_learned", "routine_def"}
+
+_NOT_SUPPORTED_MSG = (
+    "Type '{type}' is no longer supported by artifact_repo (knowledge_repo). "
+    "Knowledge_repo now only stores observation/decision/lesson_learned/routine_def "
+    "via add_log_entry. Use workspace_manager.write_workspace_artifact for "
+    "table/yaml/text/html/json/arcadia_fabric/session_summary/prompt_def/prompt artifacts."
+)
 
 
 def _store(git_store: GitStore):
@@ -44,15 +53,19 @@ def tool_list_repo_artifacts(
     name_filter: Optional[str] = None,
     limit: int = 100,
 ) -> list[dict[str, Any]]:
-    """List artifact metadata entries in a package.
+    """List knowledge entries in a package (observation/decision/lesson_learned/routine_def).
 
     Args:
         package: Package name to query.
-        type_filter: If provided, return only artifacts of this type.
-        name_filter: If provided, return only artifacts whose name contains this substring.
+        type_filter: If provided, return only entries of this type.
+        name_filter: If provided, return only entries whose title contains this substring.
         limit: Maximum number of results (default 100).
     """
-    return store.list_artifacts(package, type_filter=type_filter, name_filter=name_filter, limit=limit)
+    results = store.entries.list_entries(package, type_filter=type_filter)
+    if name_filter:
+        nf = name_filter.lower()
+        results = [r for r in results if nf in r.get("title", "").lower()]
+    return results[:limit]
 
 
 def tool_read_repo_artifact(
@@ -60,15 +73,18 @@ def tool_read_repo_artifact(
     package: str,
     artifact_id: str,
 ) -> dict[str, Any]:
-    """Read a single artifact by id.
+    """Read a single knowledge entry by id.
 
     Returns a dict with keys: ``metadata`` (dict), ``content_str`` (str), ``type`` (str).
     """
-    content_str, meta = store.read_content_str(package, artifact_id)
+    try:
+        full_md, record = store.entries.read_entry(package, artifact_id)
+    except KeyError as exc:
+        return {"error": str(exc)}
     return {
-        "metadata": json.loads(meta.model_dump_json()),
-        "content_str": content_str,
-        "type": meta.type,
+        "metadata": {"artifact_id": record["id"], "package_name": package, **record},
+        "content_str": full_md,
+        "type": record["type"],
     }
 
 
@@ -83,46 +99,28 @@ def tool_write_repo_artifact(
     lineage: Optional[list[str]] = None,
     artifact_id: Optional[str] = None,
 ) -> dict[str, Any]:
-    """Write (create or overwrite) an artifact.
-
-    The ``content_str`` is validated against the registered Pydantic type for
-    ``type``. If the type is unrecognised it falls back to ``JsonArtifact``.
+    """Write (create or overwrite) a knowledge entry.
 
     Args:
         package: Package name (created automatically if it does not exist).
-        type: Artifact type string (e.g. ``table``, ``yaml``, ``arcadia_fabric``).
-        name: Human-readable name for the artifact.
-        content_str: Serialized content string (CSV for tables, YAML/text/html as-is, JSON otherwise).
+        type: Must be one of observation/decision/lesson_learned/routine_def.
+        name: Human-readable title for the entry.
+        content_str: Markdown body (or YAML body for routine_def).
         tags: Optional list of tag strings.
-        source_tool: Name of the tool that produced this artifact.
-        lineage: Parent artifact IDs this artifact was derived from.
-        artifact_id: Provide to overwrite an existing artifact by ID; omit to create new.
+        source_tool: Name of the tool/author attributed to this entry.
+        lineage: Unused for indexed entries — kept for call-signature compatibility.
+        artifact_id: Provide to overwrite an existing entry by ID; omit to create new.
     """
-    cls = get_artifact_class(type)
+    if type not in _KNOWLEDGE_TYPES:
+        return {"error": _NOT_SUPPORTED_MSG.format(type=type)}
 
-    # Deserialize and validate content
-    try:
-        content = cls.deserialize_content(content_str)
-    except Exception as exc:
-        return {"error": f"Content validation failed for type '{type}': {exc}"}
-
-    meta = ArtifactMetadata(
-        type=type,
-        name=name,
-        package_name=package,
-        tags=tags or [],
-        source_tool=source_tool,
-        lineage=lineage or [],
+    record = store.write_entry(
+        package, entry_type=type, title=name, body_markdown=content_str,
+        tags=tags, author=source_tool, entry_id=artifact_id,
     )
-    if artifact_id:
-        meta.artifact_id = artifact_id
-
-    artifact = cls(metadata=meta, content=content)
-    art_dir = store.write(artifact)
-
     return {
-        "artifact_id": meta.artifact_id,
-        "path": str(art_dir),
+        "artifact_id": record["id"],
+        "path": record["file_path"],
         "type": type,
         "name": name,
     }
@@ -133,14 +131,14 @@ def tool_delete_repo_artifact(
     package: str,
     artifact_id: str,
 ) -> dict[str, str]:
-    """Delete an artifact from the repository.
+    """Delete a knowledge entry from the repository.
 
     Args:
         package: Package name.
-        artifact_id: ID of the artifact to delete.
+        artifact_id: ID of the entry to delete.
     """
     try:
-        store.delete(package, artifact_id)
+        store.delete_entry(package, artifact_id)
         return {"status": "deleted", "artifact_id": artifact_id}
     except KeyError as exc:
         return {"status": "not_found", "error": str(exc)}
@@ -151,15 +149,15 @@ def tool_get_repo_artifact_versions(
     package: str,
     artifact_id: str,
 ) -> list[dict[str, str]]:
-    """Return git commit history for an artifact.
+    """Return git commit history for a knowledge entry.
 
-    Returns an empty list if the store is not git-backed or the artifact has no history.
+    Returns an empty list if the store is not git-backed or the entry has no history.
 
     Args:
         package: Package name.
-        artifact_id: ID of the artifact.
+        artifact_id: ID of the entry.
     """
-    return store.get_artifact_versions(artifact_id)
+    return store.get_entry_versions(package, artifact_id)
 
 
 def tool_search_repo_artifacts(
@@ -168,14 +166,14 @@ def tool_search_repo_artifacts(
     query: str,
     type_filter: Optional[str] = None,
 ) -> list[dict[str, Any]]:
-    """Full-text search across artifact names, tags, and content files.
+    """Search knowledge entries by title substring (index-only — does not open entry files).
 
     Args:
         package: Package name to search.
-        query: Search string (case-insensitive substring match).
-        type_filter: If provided, restrict results to this artifact type.
+        query: Case-insensitive substring to match against entry titles.
+        type_filter: If provided, restrict results to this entry type.
     """
-    return store.search_artifacts(package, query, type_filter=type_filter)
+    return store.entries.search_entries(package, query=query, type_filter=type_filter)
 
 
 def tool_push_repo_artifacts(store: GitStore) -> dict[str, str]:
@@ -189,80 +187,101 @@ def tool_push_repo_artifacts(store: GitStore) -> dict[str, str]:
     return store.push()
 
 
+def _format_artifact_ref(ref: Any) -> str:
+    """Render one related_artifacts entry for inclusion in an entry body.
+
+    `ref` is either a bare artifact_id string (local knowledge_repo entry — rendered
+    as a code span, since indexed entries have no fixed URL pattern without a viewer
+    base URL in scope here) or a dict of the cross-service reference form
+    {"workspace_branch", "package", "artifact_id", "viewer_url"} for objects living in
+    workspace_manager — rendered as a link using viewer_url when present.
+    """
+    if isinstance(ref, dict):
+        label = ref.get("artifact_id", "?")[:8]
+        branch = ref.get("workspace_branch", "")
+        viewer_url = ref.get("viewer_url")
+        text = f"{label} (workspace:{branch})"
+        return f"[{text}]({viewer_url})" if viewer_url else f"`{text}`"
+    return f"`{ref}`"
+
+
 def tool_add_log_entry(
     store: GitStore,
     package: str,
-    log_book_id: str,
     text: str,
     entry_type: str = "note",
-    artifact_refs: Optional[list[str]] = None,
+    artifact_refs: Optional[list[Any]] = None,
     author: Optional[str] = None,
 ) -> dict[str, Any]:
-    """Append a timestamped entry to a log_book artifact.
+    """Write a new knowledge entry (observation/decision/lesson_learned/note/etc.).
 
-    Reads the current Markdown content, appends a formatted section with a UTC
-    timestamp, and writes back using the same artifact_id (overwrite).
+    Writes a new entries/*.md file and appends a record to the package's index.json
+    — no read-modify-write of a monolithic log_book file (that storage model no longer
+    exists; see the knowledge_repo indexed-entry rework).
 
     Args:
         package: Package name.
-        log_book_id: artifact_id of the log_book artifact to append to.
-        text: Entry body text.
-        entry_type: Category label shown in the section header (e.g. "note", "milestone",
-                    "observation", "decision").
-        artifact_refs: Optional list of artifact_ids to cite in the entry.
-        author: Optional engineer/agent name to attribute this entry to. Appears in the
-                header line when provided; omitted entirely (preserving the old format)
-                when not — a log_book may be shared across engineers and agents.
+        text: Entry body text (Markdown).
+        entry_type: Category label (e.g. "note", "milestone", "observation", "decision",
+                    "lesson_learned", "issue").
+        artifact_refs: Optional list of references to cite — either bare artifact_id
+            strings (other knowledge_repo entries) or cross-service reference dicts
+            {"workspace_branch", "package", "artifact_id", "viewer_url"} pointing at
+            workspace_manager objects.
+        author: Optional engineer/agent name to attribute this entry to.
     """
     if author and ("\n" in author or " — " in author):
         return {"error": "author must not contain newlines or ' — '"}
 
+    body = text
+    if artifact_refs:
+        refs_str = ", ".join(_format_artifact_ref(r) for r in artifact_refs)
+        body = f"{text}\n\n**References:** {refs_str}"
+
+    record = store.write_entry(
+        package, entry_type=entry_type, title=text[:60], body_markdown=body, author=author,
+    )
+    return {
+        "status": "ok",
+        "entry_id": record["id"],
+        "entry_type": entry_type,
+        "timestamp": record["timestamp"],
+        "author": author,
+    }
+
+
+def tool_read_entry(store: GitStore, package: str, entry_id: str) -> dict[str, Any]:
+    """Fetch one knowledge entry (observation/decision/lesson_learned/routine_def) by id.
+
+    Args:
+        package: Package name.
+        entry_id: ID of the entry (see index entries returned by browse_knowledge_repo).
+    """
     try:
-        content_str, meta = store.read_content_str(package, log_book_id)
+        full_md, record = store.entries.read_entry(package, entry_id)
     except KeyError as exc:
         return {"error": str(exc)}
+    return {"content_str": full_md, "metadata": {"package_name": package, **record}}
 
-    if meta.type != "log_book":
-        return {"error": f"Artifact {log_book_id} is type '{meta.type}', expected 'log_book'"}
 
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    header = f"## {ts} — {entry_type}"
-    if author:
-        header += f" — {author}"
-    section_lines = [f"\n---\n\n{header}\n\n{text}"]
-    if artifact_refs:
-        _EXT_MAP = {
-            "table": "csv", "yaml": "yaml", "arcadia_fabric": "yaml",
-            "text": "md", "html": "html", "session_summary": "md", "log_book": "md", "prompt": "md",
-            "prompt_def": "json", "observation": "json", "decision": "json",
-            "lesson_learned": "json", "json": "json",
-        }
-        idx = store._load_index()
-        ref_links = []
-        for r in artifact_refs:
-            entry = idx.get(r)
-            if entry:
-                name = entry.get("name") or r[:8]
-                type_ = entry.get("type", "json")
-                path = entry.get("path", "")
-                ext = _EXT_MAP.get(type_, "json")
-                ref_links.append(f"[{name} ({type_})](/{path}/content.{ext})")
-            else:
-                ref_links.append(f"`{r}`")
-        refs_str = ", ".join(ref_links)
-        section_lines.append(f"\n**References:** {refs_str}")
-    section_lines.append("")
+def tool_render_log_book(
+    store: GitStore,
+    package: str,
+    type_filter: Optional[str] = None,
+) -> dict[str, Any]:
+    """Assemble all knowledge entries for a package into one rendered log, newest first.
 
-    new_content = content_str.rstrip() + "\n" + "\n".join(section_lines)
+    Args:
+        package: Package name.
+        type_filter: Restrict the assembled log to one entry type.
+    """
+    rendered = store.entries.render_log_book(package, type_filter=type_filter)
+    return {"rendered_markdown": rendered}
 
-    result = tool_write_repo_artifact(
-        store, package, "log_book", meta.name or "log_book", new_content,
-        tags=meta.tags, source_tool="add_log_entry", lineage=meta.lineage,
-        artifact_id=log_book_id,
-    )
-    if "error" in result:
-        return result
-    return {"status": "ok", "log_book_id": log_book_id, "entry_type": entry_type, "timestamp": ts, "author": author}
+
+def _strip_entry_body(full_md: str) -> str:
+    """Return just the body of an entries/*.md file (everything after the frontmatter block)."""
+    return full_md.split("---\n\n", 1)[-1] if full_md.startswith("---\n") else full_md
 
 
 def tool_validate_routine_def(
@@ -270,7 +289,7 @@ def tool_validate_routine_def(
     package: str,
     artifact_id: str,
 ) -> dict[str, Any]:
-    """Validate the schema of a routine_def artifact without executing it.
+    """Validate the schema of a routine_def entry without executing it.
 
     Checks structural completeness only — does not verify resource accessibility.
     Returns {valid, errors, warnings, passed, summary}. `passed` lists fields/sections
@@ -280,24 +299,25 @@ def tool_validate_routine_def(
 
     Args:
         package: Package name.
-        artifact_id: artifact_id of the routine_def to validate.
+        artifact_id: id of the routine_def entry to validate.
     """
     import difflib  # noqa: PLC0415
     import yaml  # noqa: PLC0415
 
     try:
-        content_str, meta = store.read_content_str(package, artifact_id)
+        full_md, record = store.entries.read_entry(package, artifact_id)
     except KeyError as exc:
         return {"valid": False, "errors": [str(exc)], "warnings": [], "passed": [], "summary": {}}
 
-    if meta.type != "routine_def":
+    if record["type"] != "routine_def":
         return {
             "valid": False,
-            "errors": [f"Artifact {artifact_id} is type '{meta.type}', expected 'routine_def'"],
+            "errors": [f"Entry {artifact_id} is type '{record['type']}', expected 'routine_def'"],
             "warnings": [],
             "passed": [],
             "summary": {},
         }
+    content_str = _strip_entry_body(full_md)
 
     try:
         parsed = yaml.safe_load(content_str)
@@ -434,14 +454,14 @@ def tool_list_routines(
     results: list[dict[str, Any]] = []
 
     for pkg in packages:
-        hits = store.list_artifacts(pkg, type_filter="routine_def")
-        for meta_dict in hits:
-            aid = meta_dict.get("artifact_id", "")
+        hits = store.entries.list_entries(pkg, type_filter="routine_def")
+        for entry_dict in hits:
+            aid = entry_dict.get("id", entry_dict.get("artifact_id", ""))
             version = None
             description = None
             try:
-                content_str, _ = store.read_content_str(pkg, aid)
-                parsed = yaml.safe_load(content_str)
+                full_md, _ = store.entries.read_entry(pkg, aid)
+                parsed = yaml.safe_load(_strip_entry_body(full_md))
                 rd = parsed.get("routine_def", {}) if isinstance(parsed, dict) else {}
                 version = rd.get("version")
                 description = rd.get("description")
@@ -449,68 +469,19 @@ def tool_list_routines(
                 pass
             results.append({
                 "artifact_id": aid,
-                "name": meta_dict.get("name"),
+                "name": entry_dict.get("title"),
                 "package": pkg,
                 "version": version,
                 "description": description,
-                "tags": meta_dict.get("tags", []),
-                "updated_at": meta_dict.get("updated_at"),
+                "tags": entry_dict.get("tags", []),
+                "updated_at": entry_dict.get("timestamp"),
             })
 
     return results
 
 
-def tool_render_prompt(
-    store: GitStore,
-    package: str,
-    prompt_name: str,
-    variables: Optional[dict] = None,
-    save_rendered: bool = False,
-    source: str = "local",
-) -> dict[str, Any]:
-    """Find a prompt_def artifact by name, render it with Jinja2, optionally save result.
-
-    Returns {"found": True, "rendered": text, "prompt_artifact_id": id_or_None}
-         or {"found": False, "message": ...} if no matching prompt_def found.
-    """
-    hits = store.search_artifacts(package, prompt_name, type_filter="prompt_def")
-    # pick exact name match first, then first partial match
-    match = next((h for h in hits if h.get("name") == prompt_name), hits[0] if hits else None)
-    if not match:
-        return {"found": False, "message": f"No prompt_def named '{prompt_name}' in package '{package}'"}
-
-    try:
-        content_str, meta = store.read_content_str(package, match["artifact_id"])
-        prompt_def = PromptDefContent.model_validate_json(content_str)
-    except Exception as exc:
-        return {"found": False, "message": f"Failed to read prompt_def: {exc}"}
-
-    vars_with_defaults = {**prompt_def.defaults, **(variables or {})}
-    try:
-        rendered = Template(prompt_def.template).render(**vars_with_defaults)
-    except Exception as exc:
-        return {"found": True, "rendered": None, "error": f"Render failed: {exc}"}
-
-    prompt_artifact_id = None
-    if save_rendered:
-        prompt_content = PromptContent(
-            prompt_def_name=prompt_name,
-            variables_used=vars_with_defaults,
-            rendered_text=rendered,
-            source=source,
-        )
-        prompt_meta = ArtifactMetadata(
-            type="prompt",
-            name=f"{prompt_name}-rendered",
-            package_name=package,
-            source_tool="render_prompt",
-            lineage=[match["artifact_id"]],
-        )
-        artifact = PromptArtifact(metadata=prompt_meta, content=prompt_content)
-        store.write(artifact)
-        prompt_artifact_id = prompt_meta.artifact_id
-
-    return {"found": True, "rendered": rendered, "prompt_artifact_id": prompt_artifact_id}
+# NOTE: render_prompt (prompt_def lookup + Jinja2 render) moves to workspace_manager
+# along with the prompt_def/prompt types — artifact_repo no longer stores either.
 
 
 def tool_render_routine_prompt(
@@ -531,23 +502,24 @@ def tool_render_routine_prompt(
 
     Returns {"found": True, "rendered": text, "error": None}
          or {"found": True, "rendered": None, "error": "Render failed: ..."} on Jinja2 error
-         or {"found": False, "message": ...} if the artifact is missing or not a routine_def.
+         or {"found": False, "message": ...} if the entry is missing or not a routine_def.
 
     Args:
         package: Package name.
-        artifact_id: artifact_id of the routine_def to render.
+        artifact_id: id of the routine_def entry to render.
         variables: Dict of variable values to substitute into the template; merged
                    over each declared variable's 'default' value.
     """
     import yaml  # noqa: PLC0415
 
     try:
-        content_str, meta = store.read_content_str(package, artifact_id)
+        full_md, record = store.entries.read_entry(package, artifact_id)
     except KeyError as exc:
         return {"found": False, "message": str(exc)}
 
-    if meta.type != "routine_def":
-        return {"found": False, "message": f"Artifact {artifact_id} is type '{meta.type}', expected 'routine_def'"}
+    if record["type"] != "routine_def":
+        return {"found": False, "message": f"Entry {artifact_id} is type '{record['type']}', expected 'routine_def'"}
+    content_str = _strip_entry_body(full_md)
 
     try:
         parsed = yaml.safe_load(content_str)

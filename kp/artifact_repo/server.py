@@ -39,8 +39,9 @@ from artifact_repo.tools.crud_tools import (
     tool_list_repo_packages,
     tool_list_routines,
     tool_push_repo_artifacts,
+    tool_read_entry,
     tool_read_repo_artifact,
-    tool_render_prompt,
+    tool_render_log_book,
     tool_render_routine_prompt,
     tool_search_repo_artifacts,
     tool_validate_routine_def,
@@ -107,22 +108,25 @@ mcp = FastMCP(
         ],
     ),
     instructions=(
-        "Call clone_knowledge_repo first with a GitHub repo URL and PAT to start a session. "
+        "Call clone_knowledge_repo first with a GitHub/GitLab repo URL and PAT to start a session. "
         "All other tools require the session_id returned by clone_knowledge_repo. "
-        "Use list_artifact_packages, browse_knowledge_repo, search_artifacts to discover artifacts. "
-        "Use read_artifact to get content. "
-        "Use write_artifact to store artifacts — content_str format by type: "
-        "CSV for 'table', YAML for 'yaml'/'arcadia_fabric'/'routine_def', "
-        "Markdown for 'text'/'session_summary'/'log_book', "
-        "raw HTML for 'html' (renders as-is in the viewer, not as Markdown — use when "
-        "Markdown can't achieve the needed presentation, e.g. complex tables/layout), "
-        "JSON for 'observation'/'decision'/'lesson_learned' and others. "
-        "Use add_log_entry to append timestamped entries to a log_book artifact. "
-        "Use list_routines to discover routine_def artifacts (replayable KP task definitions). "
+        "knowledge_repo only stores 4 Knowledge-layer types now: observation, decision, "
+        "lesson_learned, routine_def — each stored as an indexed entry (index.json + "
+        "entries/*.md per package), not as a standalone artifact directory. There is no "
+        "stored 'log_book' type anymore — it is an assembled view over the other 3 types, "
+        "produced on demand by render_log_book. "
+        "table/yaml/text/html/arcadia_fabric/session_summary/prompt_def/prompt/json artifacts "
+        "live in workspace_manager (a separate MCP server), not here. "
+        "Use list_artifact_packages, browse_knowledge_repo, search_artifacts to discover entries. "
+        "Use read_artifact or read_entry to get one entry's content. "
+        "Use add_log_entry to write a new knowledge entry — pass entry_type to classify it "
+        "(observation/decision/lesson_learned/note/milestone/issue/etc). "
+        "Use render_log_book to assemble all entries in a package into one chronological log. "
+        "Use list_routines to discover routine_def entries (replayable KP task definitions). "
         "Use validate_routine_def to check a routine_def schema before running it. "
         "Use render_routine_prompt to dry-run a routine_def's prompt_template with Jinja2 "
         "before full execution — catches template errors early. "
-        "Call push_artifacts to sync commits back to GitHub. "
+        "Call push_artifacts to sync commits back to the remote. "
         "Call cleanup_session when the activity is complete to free server resources. "
         f"Registered types: {', '.join(list_registered_types())}."
     ),
@@ -230,13 +234,13 @@ def browse_knowledge_repo(
     name_filter: Optional[str] = None,
     limit: int = 100,
 ) -> list[dict]:
-    """Browse artifact metadata in a package.
+    """Browse knowledge entries in a package.
 
     Args:
         session_id: Session ID from clone_knowledge_repo.
         package: Package name to query.
-        type_filter: Restrict to this artifact type (e.g. 'observation', 'decision', 'log_book').
-        name_filter: Return only artifacts whose name contains this substring.
+        type_filter: Restrict to this entry type (observation/decision/lesson_learned/routine_def).
+        name_filter: Return only entries whose title contains this substring.
         limit: Maximum number of results (default 100).
     """
     return tool_list_repo_artifacts(_get_session(session_id), package, type_filter, name_filter, limit)
@@ -244,16 +248,42 @@ def browse_knowledge_repo(
 
 @mcp.tool()
 def read_artifact(session_id: str, package: str, artifact_id: str) -> dict:
-    """Read a single artifact by ID.
+    """Read a single knowledge entry by ID. Alias for read_entry.
 
     Returns a dict with ``metadata`` (dict), ``content_str`` (str), and ``type`` (str).
 
     Args:
         session_id: Session ID from clone_knowledge_repo.
         package: Package name.
-        artifact_id: The artifact's UUID.
+        artifact_id: The entry's id.
     """
     return tool_read_repo_artifact(_get_session(session_id), package, artifact_id)
+
+
+@mcp.tool()
+def read_entry(session_id: str, package: str, entry_id: str) -> dict:
+    """Fetch one knowledge entry (observation/decision/lesson_learned/routine_def) by id.
+
+    Call list_artifact_packages / browse_knowledge_repo first to discover entry ids.
+
+    Args:
+        session_id: Session ID from clone_knowledge_repo.
+        package: Package name.
+        entry_id: The entry's id.
+    """
+    return tool_read_entry(_get_session(session_id), package, entry_id)
+
+
+@mcp.tool()
+def render_log_book(session_id: str, package: str, type_filter: Optional[str] = None) -> dict:
+    """Assemble all knowledge entries for a package into one rendered log, newest first.
+
+    Args:
+        session_id: Session ID from clone_knowledge_repo.
+        package: Package name.
+        type_filter: Restrict the assembled log to one entry type.
+    """
+    return tool_render_log_book(_get_session(session_id), package, type_filter)
 
 
 @mcp.tool()
@@ -268,24 +298,23 @@ def write_artifact(
     lineage: Optional[list[str]] = None,
     artifact_id: Optional[str] = None,
 ) -> dict:
-    """Write (create or overwrite) an artifact.
+    """Write (create or overwrite) a knowledge entry.
 
-    Content format by type:
-    - ``table``: CSV text with header row
-    - ``yaml`` / ``arcadia_fabric``: raw YAML text
-    - ``text`` / ``session_summary``: Markdown text
-    - ``json`` / others: JSON string
+    type must be one of: observation, decision, lesson_learned, routine_def.
+    For routine_def, content_str is the raw YAML body. For the others, it's Markdown.
+    Prefer add_log_entry for observation/decision/lesson_learned/note-style entries —
+    this tool exists mainly for routine_def and for overwriting an entry by id.
 
     Args:
         session_id: Session ID from clone_knowledge_repo.
         package: Package name (auto-created if needed).
-        type: Artifact type string.
-        name: Human-readable name.
-        content_str: Serialized content (format depends on type).
+        type: Entry type string.
+        name: Human-readable title.
+        content_str: Markdown (or YAML for routine_def) body.
         tags: Optional tag list for search/filtering.
-        source_tool: Name of the tool that produced this artifact.
-        lineage: IDs of parent artifacts this was derived from.
-        artifact_id: Provide to overwrite an existing artifact; omit to create new.
+        source_tool: Name of the tool/author attributed to this entry.
+        lineage: Unused for indexed entries — kept for call-signature compatibility.
+        artifact_id: Provide to overwrite an existing entry; omit to create new.
     """
     result = tool_write_repo_artifact(
         _get_session(session_id), package, type, name, content_str, tags, source_tool, lineage, artifact_id
@@ -297,12 +326,12 @@ def write_artifact(
 
 @mcp.tool()
 def delete_artifact(session_id: str, package: str, artifact_id: str) -> dict:
-    """Delete an artifact from the repository.
+    """Delete a knowledge entry from the repository.
 
     Args:
         session_id: Session ID from clone_knowledge_repo.
         package: Package name.
-        artifact_id: The artifact's UUID.
+        artifact_id: The entry's id.
     """
     return tool_delete_repo_artifact(_get_session(session_id), package, artifact_id)
 
@@ -374,60 +403,39 @@ def create_artifact_branch(
 def add_log_entry(
     session_id: str,
     package: str,
-    log_book_id: str,
     text: str,
     entry_type: str = "note",
-    artifact_refs: Optional[list[str]] = None,
+    artifact_refs: Optional[list] = None,
     author: Optional[str] = None,
 ) -> dict:
-    """Append a timestamped entry to a log_book artifact.
+    """Write a new knowledge entry (observation/decision/lesson_learned/note/etc).
 
-    Use this instead of read+write to avoid Markdown formatting errors.
-    Each call appends a dated section to the Markdown file on disk.
+    Writes a new entries/*.md file and updates the package's index.json — there is
+    no monolithic log_book file to read-modify-write anymore.
 
-    entry_type suggestions: "note", "milestone", "observation", "decision", "issue"
+    entry_type suggestions: "note", "milestone", "observation", "decision",
+    "lesson_learned", "issue"
 
     Args:
         session_id: Session ID from clone_knowledge_repo.
         package: Package name.
-        log_book_id: artifact_id of the log_book to append to.
         text: Entry body text.
         entry_type: Category label for the section header (default: "note").
-        artifact_refs: Optional artifact_ids to cite in this entry.
+        artifact_refs: Optional references to cite — bare artifact_id strings for other
+            knowledge_repo entries, or cross-service reference dicts
+            {"workspace_branch", "package", "artifact_id", "viewer_url"} for
+            workspace_manager objects.
         author: Optional engineer/agent name to attribute this entry to (appears in the
                 entry header). Omit if unknown — older entries have no author.
     """
-    result = tool_add_log_entry(_get_session(session_id), package, log_book_id, text, entry_type, artifact_refs, author)
+    result = tool_add_log_entry(_get_session(session_id), package, text, entry_type, artifact_refs, author)
     if _VIEWER_BASE_URL and result.get("status") == "ok":
-        result["viewer_url"] = f"{_VIEWER_BASE_URL}/{package}/{log_book_id}"
+        result["viewer_url"] = f"{_VIEWER_BASE_URL}/{package}/{result['entry_id']}"
     return result
 
 
-@mcp.tool()
-def render_prompt(
-    session_id: str,
-    package: str,
-    prompt_name: str,
-    variables: Optional[dict] = None,
-    save_rendered: bool = False,
-) -> dict:
-    """Find a prompt_def by name, render it with Jinja2, and optionally save the result.
-
-    Looks for a 'prompt_def' artifact matching prompt_name in the given package.
-    Returns the rendered text. If not found locally, call render_prompt on the
-    prompt library session instead.
-
-    If save_rendered=True, writes a 'prompt' artifact (type="prompt") to the same
-    package with lineage pointing to the prompt_def — for traceability.
-
-    Args:
-        session_id: Session ID from clone_knowledge_repo.
-        package: Package name to search for the prompt_def.
-        prompt_name: Name of the prompt_def artifact.
-        variables: Dict of variable values to substitute into the template.
-        save_rendered: If True, save the rendered output as a 'prompt' artifact.
-    """
-    return tool_render_prompt(_get_session(session_id), package, prompt_name, variables, save_rendered)
+# NOTE: render_prompt is no longer exposed here — prompt_def/prompt now live in
+# workspace_manager along with the rest of the routine input/output type system.
 
 
 @mcp.tool()

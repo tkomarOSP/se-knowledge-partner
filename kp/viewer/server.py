@@ -126,10 +126,17 @@ def _derive_alias(repo_url: str, existing: set[str]) -> str:
 
 
 def _render(request: Request, name: str, context: dict) -> HTMLResponse:
+    client = _get_active_client(request)
+    try:
+        nav_branches = client.list_branches() if client else []
+    except Exception:
+        nav_branches = []
     context = {
         **context,
         "nav_repos": _get_repos(request),
         "active_alias": request.session.get("active_alias"),
+        "nav_branches": nav_branches,
+        "active_branch": client.branch if client else None,
     }
     return templates.TemplateResponse(request, name, context)
 
@@ -247,6 +254,27 @@ async def reclone(request: Request):
     if client:
         client.reclone()
     return RedirectResponse(url="/", status_code=303)
+
+
+@app.post("/switch-branch")
+async def switch_branch(request: Request, branch: str = Form(...)):
+    client = _get_active_client(request)
+    if client:
+        client.checkout_branch(branch)
+    referer = request.headers.get("referer", "/")
+    return RedirectResponse(url=referer, status_code=303)
+
+
+@app.get("/workspace/{branch_name:path}", response_class=HTMLResponse)
+async def workspace_view(request: Request, branch_name: str):
+    client = _get_active_client(request)
+    if client is None:
+        return RedirectResponse(url="/setup", status_code=303)
+    checkout = client.checkout_branch(branch_name)
+    if checkout.get("status") != "ok":
+        return HTMLResponse(f"<h1>Error</h1><p>{checkout.get('message')}</p>", status_code=404)
+    ws = client.read_workspace()
+    return _render(request, "workspace.html", {"branch_name": branch_name, "workspace": ws})
 
 
 @app.get("/{package}", response_class=HTMLResponse)

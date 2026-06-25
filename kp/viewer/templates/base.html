@@ -61,6 +61,10 @@
     .badge-observation { background: #dcfce7; color: #15803d; }
     .badge-milestone { background: #fef3c7; color: #b45309; }
     .badge-note { background: #f3f4f6; color: #6b7280; }
+    .badge-running { background: #dbeafe; color: #1d4ed8; }
+    .badge-paused { background: #fef3c7; color: #b45309; }
+    .badge-complete { background: #dcfce7; color: #15803d; }
+    .badge-promoted { background: #ede9fe; color: #6d28d9; }
 
     /* Log book */
     .logbook-summary { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
@@ -172,6 +176,15 @@
     </select>
   </form>
   <a href="/setup" class="add-repo-link">+ Add repo</a>
+  {% endif %}
+  {% if nav_branches %}
+  <form method="post" action="/switch-branch">
+    <select name="branch" class="repo-select" onchange="this.form.submit()">
+      {% for b in nav_branches %}
+      <option value="{{ b }}" {% if b == active_branch %}selected{% endif %}>{{ b }}</option>
+      {% endfor %}
+    </select>
+  </form>
   {% endif %}
   {% block breadcrumb %}{% endblock %}
   <span class="nav-spacer"></span>

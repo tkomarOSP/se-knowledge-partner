@@ -22,6 +22,7 @@ from typing_extensions import TypedDict
 
 from kp_agent.config import MCP_SERVERS, get_openai_config
 from kp_agent.mcp_client import MCPClientPool
+from kp_agent.routine_engine import RoutineExecution
 
 
 # ---------------------------------------------------------------------------
@@ -144,6 +145,31 @@ class KPAgent:
         final = self._graph.invoke({"messages": [{"role": "user", "content": user_message}]})
         last = final["messages"][-1]
         return last.content if hasattr(last, "content") else str(last)
+
+    def run_routine(
+        self,
+        package: str,
+        artifact_id: str,
+        variables: dict,
+        artifact_repo_session_id: str,
+        workspace_session_id: str,
+        engineer_name: str | None = None,
+    ) -> dict:
+        """Drive a routine_def end-to-end: steps 1-6 (prepare) automated, step 7
+        (analysis) via the existing chat() path — the LLM's own tool calls during
+        that turn (including workspace_manager__write_workspace_artifact) carry out
+        step 8 — then steps 9-10 (finalize) automated.
+
+        Both session_ids must already exist (clone_knowledge_repo on artifact_repo,
+        create_workspace_session on workspace_manager) — this method does not manage
+        session lifecycle itself, since the two are separate MCP servers.
+        """
+        execution = RoutineExecution(
+            self._pool, artifact_repo_session_id, workspace_session_id, package, artifact_id,
+        )
+        prep = execution.prepare(variables, engineer_name)
+        self.chat(prep["rendered_prompt"])
+        return execution.finalize(engineer_name=engineer_name)
 
     def stream(self, user_message: str):
         """Yield messages as the graph executes (for notebook/UI use)."""

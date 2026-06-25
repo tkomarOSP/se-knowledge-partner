@@ -1,40 +1,30 @@
-"""Maps artifact type strings to Pydantic artifact classes."""
+"""Maps artifact type strings to Pydantic artifact classes.
+
+NOTE: as of the knowledge_repo indexed-entry rework, artifact_repo only owns the
+4 Knowledge-layer types below. The other 9 types (table, yaml, text, html,
+arcadia_fabric, session_summary, prompt_def, prompt, json) have moved to
+workspace_manager — they are routine inputs/outputs, persisted inside workspace
+branches, not long-term knowledge artifacts. ``log_book`` is no longer a stored
+type at all: it is now an assembled view over observation/decision/lesson_learned
+entries (see IndexedEntryStore.render_log_book / tool_render_log_book).
+"""
 
 from __future__ import annotations
 
 from artifact_repo.types.base import BaseArtifact
 from artifact_repo.types.common import (
-    ArcadiaFabricArtifact,
     DecisionArtifact,
-    HtmlArtifact,
     JsonArtifact,
     LessonLearnedArtifact,
-    LogBookArtifact,
     ObservationArtifact,
-    PromptArtifact,
-    PromptDefArtifact,
     RoutineDefArtifact,
-    SessionSummaryArtifact,
-    TableArtifact,
-    TextArtifact,
-    YamlArtifact,
 )
 
 ARTIFACT_TYPE_REGISTRY: dict[str, type[BaseArtifact]] = {
-    "table": TableArtifact,
-    "yaml": YamlArtifact,
-    "text": TextArtifact,
-    "html": HtmlArtifact,
-    "arcadia_fabric": ArcadiaFabricArtifact,
-    "session_summary": SessionSummaryArtifact,
-    "prompt_def": PromptDefArtifact,
-    "prompt": PromptArtifact,
     "observation": ObservationArtifact,
     "decision": DecisionArtifact,
     "lesson_learned": LessonLearnedArtifact,
-    "log_book": LogBookArtifact,
     "routine_def": RoutineDefArtifact,
-    "json": JsonArtifact,
 }
 
 

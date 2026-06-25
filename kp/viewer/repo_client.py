@@ -138,3 +138,51 @@ class ViewerRepoClient:
         self, package: str, query: str, type_filter: Optional[str] = None
     ) -> list[dict[str, Any]]:
         return self._require_store().search_artifacts(package, query, type_filter=type_filter)
+
+    # ------------------------------------------------------------------
+    # Branch switching / workspace rendering
+    # ------------------------------------------------------------------
+
+    def list_branches(self) -> list[str]:
+        return self._require_store().list_branches()
+
+    def checkout_branch(self, branch_name: str) -> dict:
+        """Fetch + checkout a specific branch in the existing clone (no re-clone).
+
+        Runs `git clean -fd` first: instantiating GitStore on a branch lacking a
+        committed .index/index.json (e.g. a workspace branch's root, or a plain
+        branch with no artifacts yet) creates that file as untracked, which then
+        blocks checkout into a branch that *does* track it. The viewer's clone is
+        read-only/disposable, so discarding untracked files here is safe.
+        """
+        fetch = subprocess.run(
+            ["git", "-C", str(self.clone_dir), "fetch", "origin", branch_name],
+            capture_output=True, text=True,
+        )
+        if fetch.returncode != 0:
+            return {"status": "error", "message": _scrub_pat(fetch.stderr.strip(), self.pat)}
+        subprocess.run(["git", "-C", str(self.clone_dir), "clean", "-fd"], capture_output=True, text=True)
+        checkout = subprocess.run(
+            ["git", "-C", str(self.clone_dir), "checkout", branch_name],
+            capture_output=True, text=True,
+        )
+        if checkout.returncode != 0:
+            return {"status": "error", "message": checkout.stderr.strip()}
+        self.branch = branch_name
+        self._store = GitStore(self.clone_dir)
+        return {"status": "ok", "branch": branch_name}
+
+    def read_workspace(self) -> dict:
+        """Read index.json + status.json + outputs from the CURRENT branch root.
+
+        Workspace layout is branch-root-relative (index.json/status.json at the repo
+        root, packages/ alongside) — not package-scoped like normal artifact browsing.
+        """
+        import json  # noqa: PLC0415
+
+        root = self.clone_dir
+        index_path = root / "index.json"
+        status_path = root / "status.json"
+        index = json.loads(index_path.read_text(encoding="utf-8")) if index_path.exists() else None
+        status = json.loads(status_path.read_text(encoding="utf-8")) if status_path.exists() else None
+        return {"index": index, "status": status}

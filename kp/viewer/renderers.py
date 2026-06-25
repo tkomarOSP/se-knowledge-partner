@@ -28,6 +28,10 @@ BADGE_CLASSES = {
     "observation": "badge-observation",
     "milestone": "badge-milestone",
     "note": "badge-note",
+    "running": "badge-running",
+    "paused": "badge-paused",
+    "complete": "badge-complete",
+    "promoted": "badge-promoted",
 }
 
 TYPE_BADGE_CLASSES = {
