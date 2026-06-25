@@ -5,7 +5,7 @@ description = "Knowledge Partner — MCP-first architecture workspace"
 requires-python = ">=3.11"
 
 # Install all KP packages in editable mode:
-#   pip install -e kp/artifact_repo -e kp/prompt_library -e kp/session_manager -e kp/kp_agent
+#   pip install -e kp/knowledge_repo -e kp/prompt_library -e kp/session_manager -e kp/kp_agent
 
 [tool.setuptools]
 packages = []

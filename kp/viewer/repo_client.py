@@ -8,8 +8,8 @@ import subprocess
 from pathlib import Path
 from typing import Any, Optional
 
-from artifact_repo.store.git_store import GitStore
-from artifact_repo.types.base import ArtifactMetadata
+from knowledge_repo.store.git_store import GitStore
+from knowledge_repo.types.base import ArtifactMetadata
 
 
 # Respect KP_VIEWER_BASE_DIR so clones land in a writable location on the server

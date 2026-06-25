@@ -1,6 +1,6 @@
 """Base Pydantic models for all artifact types.
 
-Ported from artifact_repo/types/base.py as part of the knowledge_repo rework —
+Ported from knowledge_repo/types/base.py as part of the knowledge_repo rework —
 the general typed-artifact system now lives here, scoped to workspace branches.
 """
 

@@ -1,6 +1,6 @@
-# Deploying KP Artifact Repository MCP Server to Digital Ocean
+# Deploying KP Knowledge Repository MCP Server to Digital Ocean
 
-The artifact-repo MCP server runs on port 8002 behind nginx at `repo.innovatingwithcapella.com`.
+The knowledge-repo MCP server runs on port 8002 behind nginx at `repo.innovatingwithcapella.com`.
 
 ---
 
@@ -29,13 +29,13 @@ git clone https://github.com/YOUR_ORG/YOUR_REPO.git /opt/knowledge_partner
 cd /opt/knowledge_partner
 python3 -m venv .venv
 .venv/bin/pip install --upgrade pip
-.venv/bin/pip install -e kp/artifact_repo
+.venv/bin/pip install -e kp/knowledge_repo
 ```
 
 Verify:
 
 ```bash
-.venv/bin/python -c "import artifact_repo; print('OK')"
+.venv/bin/python -c "import knowledge_repo; print('OK')"
 ```
 
 ---
@@ -43,8 +43,8 @@ Verify:
 ## Step 3 — Create log directory
 
 ```bash
-sudo mkdir -p /var/log/kp-artifact-repo
-sudo chown www-data:www-data /var/log/kp-artifact-repo
+sudo mkdir -p /var/log/kp-knowledge-repo
+sudo chown www-data:www-data /var/log/kp-knowledge-repo
 ```
 
 ---
@@ -52,19 +52,19 @@ sudo chown www-data:www-data /var/log/kp-artifact-repo
 ## Step 4 — Install the systemd service
 
 ```bash
-sudo cp /opt/knowledge_partner/kp/artifact_repo/deploy/kp-artifact-repo.service \
+sudo cp /opt/knowledge_partner/kp/knowledge_repo/deploy/kp-knowledge-repo.service \
     /etc/systemd/system/
 
 sudo systemctl daemon-reload
-sudo systemctl enable kp-artifact-repo
-sudo systemctl start kp-artifact-repo
+sudo systemctl enable kp-knowledge-repo
+sudo systemctl start kp-knowledge-repo
 ```
 
 Check it started cleanly:
 
 ```bash
-sudo systemctl status kp-artifact-repo
-sudo tail -f /var/log/kp-artifact-repo/mcp-error.log
+sudo systemctl status kp-knowledge-repo
+sudo tail -f /var/log/kp-knowledge-repo/mcp-error.log
 ```
 
 ---
@@ -80,11 +80,11 @@ sudo certbot certonly --nginx -d repo.innovatingwithcapella.com
 ## Step 6 — Install the nginx config
 
 ```bash
-sudo cp /opt/knowledge_partner/kp/artifact_repo/deploy/nginx_artifact_repo.conf \
-    /etc/nginx/sites-available/kp-artifact-repo.conf
+sudo cp /opt/knowledge_partner/kp/knowledge_repo/deploy/nginx_knowledge_repo.conf \
+    /etc/nginx/sites-available/kp-knowledge-repo.conf
 
-sudo ln -s /etc/nginx/sites-available/kp-artifact-repo.conf \
-    /etc/nginx/sites-enabled/kp-artifact-repo.conf
+sudo ln -s /etc/nginx/sites-available/kp-knowledge-repo.conf \
+    /etc/nginx/sites-enabled/kp-knowledge-repo.conf
 
 sudo nginx -t
 sudo systemctl reload nginx
@@ -111,7 +111,7 @@ After pushing new code:
 ```bash
 cd /opt/knowledge_partner
 git pull
-sudo systemctl restart kp-artifact-repo
+sudo systemctl restart kp-knowledge-repo
 ```
 
 No re-install needed unless dependencies changed (in which case re-run Step 2).
@@ -122,8 +122,8 @@ No re-install needed unless dependencies changed (in which case re-run Step 2).
 
 | Symptom | Check |
 |---|---|
-| 502 Bad Gateway | `systemctl status kp-artifact-repo` — service may have crashed |
+| 502 Bad Gateway | `systemctl status kp-knowledge-repo` — service may have crashed |
 | 404 on `/mcp` | nginx config not linked — check `sites-enabled/` |
 | SSL error | `certbot renew --dry-run` to verify cert renewal |
-| MCP tool errors in Claude | `tail /var/log/kp-artifact-repo/mcp-error.log` |
+| MCP tool errors in Claude | `tail /var/log/kp-knowledge-repo/mcp-error.log` |
 | Port 8002 not listening | `ss -tlnp \| grep 8002` — service not running |

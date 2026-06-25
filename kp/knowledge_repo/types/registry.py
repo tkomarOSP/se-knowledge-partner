@@ -1,6 +1,6 @@
 """Maps artifact type strings to Pydantic artifact classes.
 
-NOTE: as of the knowledge_repo indexed-entry rework, artifact_repo only owns the
+NOTE: as of the knowledge_repo indexed-entry rework, knowledge_repo only owns the
 4 Knowledge-layer types below. The other 9 types (table, yaml, text, html,
 arcadia_fabric, session_summary, prompt_def, prompt, json) have moved to
 workspace_manager — they are routine inputs/outputs, persisted inside workspace
@@ -11,8 +11,8 @@ entries (see IndexedEntryStore.render_log_book / tool_render_log_book).
 
 from __future__ import annotations
 
-from artifact_repo.types.base import BaseArtifact
-from artifact_repo.types.common import (
+from knowledge_repo.types.base import BaseArtifact
+from knowledge_repo.types.common import (
     DecisionArtifact,
     JsonArtifact,
     LessonLearnedArtifact,

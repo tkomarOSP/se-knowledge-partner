@@ -8,8 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from artifact_repo.types.base import ArtifactMetadata, BaseArtifact
-from artifact_repo.types.registry import get_artifact_class
+from knowledge_repo.types.base import ArtifactMetadata, BaseArtifact
+from knowledge_repo.types.registry import get_artifact_class
 
 
 _INDEX_DIR = ".index"

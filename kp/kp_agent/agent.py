@@ -151,7 +151,7 @@ class KPAgent:
         package: str,
         artifact_id: str,
         variables: dict,
-        artifact_repo_session_id: str,
+        knowledge_repo_session_id: str,
         workspace_session_id: str,
         engineer_name: str | None = None,
     ) -> dict:
@@ -160,12 +160,12 @@ class KPAgent:
         that turn (including workspace_manager__write_workspace_artifact) carry out
         step 8 — then steps 9-10 (finalize) automated.
 
-        Both session_ids must already exist (clone_knowledge_repo on artifact_repo,
+        Both session_ids must already exist (clone_knowledge_repo on knowledge_repo,
         create_workspace_session on workspace_manager) — this method does not manage
         session lifecycle itself, since the two are separate MCP servers.
         """
         execution = RoutineExecution(
-            self._pool, artifact_repo_session_id, workspace_session_id, package, artifact_id,
+            self._pool, knowledge_repo_session_id, workspace_session_id, package, artifact_id,
         )
         prep = execution.prepare(variables, engineer_name)
         self.chat(prep["rendered_prompt"])

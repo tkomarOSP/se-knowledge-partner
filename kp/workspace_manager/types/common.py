@@ -1,10 +1,10 @@
 """Concrete artifact type definitions.
 
-Ported from artifact_repo/types/common.py as part of the knowledge_repo rework.
+Ported from knowledge_repo/types/common.py as part of the knowledge_repo rework.
 These 9 types — table, yaml, text, html, arcadia_fabric, session_summary,
 prompt_def, prompt, json — are routine inputs/outputs and general engineering
 data, persisted inside workspace branches. The 4 Knowledge-layer types
-(observation, decision, lesson_learned, routine_def) stay in artifact_repo.
+(observation, decision, lesson_learned, routine_def) stay in knowledge_repo.
 """
 
 from __future__ import annotations

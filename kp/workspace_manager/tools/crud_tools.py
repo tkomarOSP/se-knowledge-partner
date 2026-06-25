@@ -1,6 +1,6 @@
 """MCP tool implementations for general typed-artifact CRUD (the 9 ported types).
 
-Ported from artifact_repo's original (pre-indexed-entry-rework) crud_tools.py.
+Ported from knowledge_repo's original (pre-indexed-entry-rework) crud_tools.py.
 Operates on whatever branch the GitStore session is currently checked out to —
 typically 'main', but works the same on a workspace branch too.
 """

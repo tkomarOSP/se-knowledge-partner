@@ -8,7 +8,7 @@ Execution Protocol" section). Step 7 (the actual analysis) stays conversational:
 This is new orchestration code — no prior version of this engine exists. The
 protocol was previously a manual contract followed by hand, not enforced by code.
 
-Two MCP sessions are required: one for ``artifact_repo`` (to read the routine_def
+Two MCP sessions are required: one for ``knowledge_repo`` (to read the routine_def
 and log the completion milestone) and one for ``workspace_manager`` (to create the
 workspace branch and record outputs) — they are separate servers per the
 knowledge_repo rework, so there is no single shared session.
@@ -30,13 +30,13 @@ class RoutineExecution:
     def __init__(
         self,
         pool: MCPClientPool,
-        artifact_repo_session_id: str,
+        knowledge_repo_session_id: str,
         workspace_session_id: str,
         package: str,
         artifact_id: str,
     ):
         self._pool = pool
-        self._artifact_repo_session = artifact_repo_session_id
+        self._knowledge_repo_session = knowledge_repo_session_id
         self._workspace_session = workspace_session_id
         self._package = package
         self._artifact_id = artifact_id
@@ -57,7 +57,7 @@ class RoutineExecution:
         """
         # Step 1: read_artifact (routine_def)
         entry = self._pool.call(
-            "artifact_repo", "read_entry", session_id=self._artifact_repo_session,
+            "knowledge_repo", "read_entry", session_id=self._knowledge_repo_session,
             package=self._package, entry_id=self._artifact_id,
         )
         if entry.get("error"):
@@ -101,7 +101,7 @@ class RoutineExecution:
             if not artifact_id_pattern:
                 continue
             result = self._pool.call(
-                "artifact_repo", "read_entry", session_id=self._artifact_repo_session,
+                "knowledge_repo", "read_entry", session_id=self._knowledge_repo_session,
                 package=input_package, entry_id=artifact_id_pattern,
             )
             if bind_as:
@@ -125,7 +125,7 @@ class RoutineExecution:
         if fabric_text:
             render_vars["fabric"] = fabric_text
         render = self._pool.call(
-            "artifact_repo", "render_routine_prompt", session_id=self._artifact_repo_session,
+            "knowledge_repo", "render_routine_prompt", session_id=self._knowledge_repo_session,
             package=self._package, artifact_id=self._artifact_id, variables=render_vars,
         )
         if render.get("error"):
@@ -149,7 +149,7 @@ class RoutineExecution:
 
     def _dispatch_resource(self, resource: dict) -> Optional[str]:
         rtype = resource.get("type")
-        if rtype in (None, "none", "artifact_repo"):
+        if rtype in (None, "none", "knowledge_repo"):
             return None
         if rtype == "capella_model_repo":
             mcp_tool = resource.get("mcp_tool", "clone_capella_repo")
@@ -221,7 +221,7 @@ class RoutineExecution:
             f"Outputs written: {sorted(written_names)}."
         )
         self._pool.call(
-            "artifact_repo", "add_log_entry", session_id=self._artifact_repo_session,
+            "knowledge_repo", "add_log_entry", session_id=self._knowledge_repo_session,
             package=self._package, text=milestone_text, entry_type="milestone",
             author=engineer_name,
         )

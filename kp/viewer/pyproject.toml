@@ -9,8 +9,8 @@ dependencies = [
     "mistune>=3.0",
     "python-multipart>=0.0.9",
     "itsdangerous>=2.1",
-    # artifact_repo (kp-knowledge-repo) must also be installed:
-    #   pip install -e kp/artifact_repo
+    # knowledge_repo (kp-knowledge-repo) must also be installed:
+    #   pip install -e kp/knowledge_repo
 ]
 
 [build-system]

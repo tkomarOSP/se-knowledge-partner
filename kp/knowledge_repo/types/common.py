@@ -12,7 +12,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from artifact_repo.types.base import BaseArtifact
+from knowledge_repo.types.base import BaseArtifact
 
 
 # ---------------------------------------------------------------------------

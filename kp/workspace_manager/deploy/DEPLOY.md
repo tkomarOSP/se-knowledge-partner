@@ -2,8 +2,8 @@
 
 The workspace-manager MCP server runs on port 8005 behind nginx at
 `workspace.innovatingwithcapella.com`. It shares the droplet, venv, and
-`/opt/knowledge_partner` clone already set up for `kp-artifact-repo` and
-`kp-viewer` (see `kp/artifact_repo/deploy/DEPLOY.md` for the original setup).
+`/opt/knowledge_partner` clone already set up for `kp-knowledge-repo` and
+`kp-viewer` (see `kp/knowledge_repo/deploy/DEPLOY.md` for the original setup).
 
 **HARD REQUIREMENT:** the git repo(s) this server is pointed at via
 `create_workspace_session` must never be the Capella model repo. Mixing
@@ -14,7 +14,7 @@ causes fast-forward conflicts. Always use a plain, dedicated git repo.
 
 ## Prerequisites
 
-- The existing `kp-artifact-repo` and `kp-viewer` services already deployed
+- The existing `kp-knowledge-repo` and `kp-viewer` services already deployed
   (shared venv, shared `/opt/knowledge_partner` clone)
 - DNS A record for `workspace.innovatingwithcapella.com` pointing to the droplet IP
 - `certbot` already installed

@@ -1,6 +1,6 @@
 """Filesystem-backed artifact store.
 
-Ported from artifact_repo/store/filesystem.py as part of the knowledge_repo
+Ported from knowledge_repo/store/filesystem.py as part of the knowledge_repo
 rework — unchanged layout, just relocated to workspace_manager since this is
 now the general typed-artifact store used inside workspace branches.
 """

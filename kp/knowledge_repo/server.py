@@ -13,7 +13,7 @@ Session workflow:
 
 Environment variables:
     KP_REPO_SESSION_BASE  Base directory for session clones.
-                          Default: $TMPDIR/kp_artifact_repo
+                          Default: $TMPDIR/kp_knowledge_repo
 """
 
 from __future__ import annotations
@@ -30,8 +30,8 @@ from urllib.parse import urlparse
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
-from artifact_repo.store.git_store import GitStore
-from artifact_repo.tools.crud_tools import (
+from knowledge_repo.store.git_store import GitStore
+from knowledge_repo.tools.crud_tools import (
     tool_add_log_entry,
     tool_delete_repo_artifact,
     tool_get_repo_artifact_versions,
@@ -47,7 +47,7 @@ from artifact_repo.tools.crud_tools import (
     tool_validate_routine_def,
     tool_write_repo_artifact,
 )
-from artifact_repo.types.registry import list_registered_types
+from knowledge_repo.types.registry import list_registered_types
 
 # ---------------------------------------------------------------------------
 # Session management
@@ -56,7 +56,7 @@ from artifact_repo.types.registry import list_registered_types
 _SESSION_BASE = Path(
     os.environ.get(
         "KP_REPO_SESSION_BASE",
-        str(Path(tempfile.gettempdir()) / "kp_artifact_repo"),
+        str(Path(tempfile.gettempdir()) / "kp_knowledge_repo"),
     )
 )
 _sessions: dict[str, GitStore] = {}

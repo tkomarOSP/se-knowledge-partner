@@ -1,6 +1,6 @@
 """Git-backed artifact store — wraps FilesystemStore and auto-commits on write/delete.
 
-Ported from artifact_repo/store/git_store.py as part of the knowledge_repo
+Ported from knowledge_repo/store/git_store.py as part of the knowledge_repo
 rework. Adds checkout_branch(), used by WorkspaceStore to switch into/out of a
 workspace branch within the same clone (workspace_manager does not maintain a
 separate clone per branch).

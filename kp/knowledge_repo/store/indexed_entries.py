@@ -4,7 +4,7 @@ Replaces the old monolithic ``log_book`` (single content.md, read-modify-write
 on every append) with a per-package ``index.json`` manifest plus one ``.md``
 file per entry under ``entries/``. Applies to ``observation``, ``decision``,
 ``lesson_learned``, and ``routine_def`` — the 4 types that remain in
-artifact_repo after the indexed-entry rework. Everything else lives in
+knowledge_repo after the indexed-entry rework. Everything else lives in
 workspace_manager.
 
 Layout::

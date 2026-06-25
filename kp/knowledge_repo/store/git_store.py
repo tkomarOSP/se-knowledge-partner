@@ -6,9 +6,9 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-from artifact_repo.store.filesystem import FilesystemStore
-from artifact_repo.store.indexed_entries import IndexedEntryStore
-from artifact_repo.types.base import BaseArtifact
+from knowledge_repo.store.filesystem import FilesystemStore
+from knowledge_repo.store.indexed_entries import IndexedEntryStore
+from knowledge_repo.types.base import BaseArtifact
 
 
 class GitStore(FilesystemStore):

@@ -2,8 +2,8 @@
 
 The project-artifact-repo MCP server runs on port 8006 behind nginx at
 `project-artifacts.innovatingwithcapella.com`. It shares the droplet, venv, and
-`/opt/knowledge_partner` clone already set up for `kp-artifact-repo` and
-`kp-viewer` (see `kp/artifact_repo/deploy/DEPLOY.md` for the original setup).
+`/opt/knowledge_partner` clone already set up for `kp-knowledge-repo` and
+`kp-viewer` (see `kp/knowledge_repo/deploy/DEPLOY.md` for the original setup).
 
 This is the first **destination-layer** MCP — the landing point for promoted
 workspace outputs (Layer 3: FMEA tables, Pugh matrices, trade studies,
@@ -24,7 +24,7 @@ decision after running into exactly that problem.
 
 ## Prerequisites
 
-- The existing `kp-artifact-repo`, `kp-viewer`, and `kp-workspace-manager`
+- The existing `kp-knowledge-repo`, `kp-viewer`, and `kp-workspace-manager`
   services already deployed (shared venv, shared `/opt/knowledge_partner` clone)
 - DNS A record for `project-artifacts.innovatingwithcapella.com` pointing to
   the droplet IP

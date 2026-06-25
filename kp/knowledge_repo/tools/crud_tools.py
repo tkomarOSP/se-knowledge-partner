@@ -15,13 +15,13 @@ from typing import Any, Optional
 
 from jinja2 import Template
 
-from artifact_repo.store.git_store import GitStore
+from knowledge_repo.store.git_store import GitStore
 
 _KNOWLEDGE_TYPES = {"observation", "decision", "lesson_learned", "routine_def"}
 
 _NOT_SUPPORTED_MSG = (
-    "Type '{type}' is no longer supported by artifact_repo (knowledge_repo). "
-    "Knowledge_repo now only stores observation/decision/lesson_learned/routine_def "
+    "Type '{type}' is no longer supported by knowledge_repo. "
+    "knowledge_repo now only stores observation/decision/lesson_learned/routine_def "
     "via add_log_entry. Use workspace_manager.write_workspace_artifact for "
     "table/yaml/text/html/json/arcadia_fabric/session_summary/prompt_def/prompt artifacts."
 )
@@ -481,7 +481,7 @@ def tool_list_routines(
 
 
 # NOTE: render_prompt (prompt_def lookup + Jinja2 render) moves to workspace_manager
-# along with the prompt_def/prompt types — artifact_repo no longer stores either.
+# along with the prompt_def/prompt types — knowledge_repo no longer stores either.
 
 
 def tool_render_routine_prompt(

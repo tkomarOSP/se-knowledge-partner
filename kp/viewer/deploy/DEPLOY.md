@@ -1,6 +1,6 @@
 # Deploying KP Artifact Viewer to Digital Ocean
 
-Follows the same pattern as `kp/artifact_repo/deploy/`. The viewer runs on port 8080 behind nginx at `artifacts.innovatingwithcapella.com`.
+Follows the same pattern as `kp/knowledge_repo/deploy/`. The viewer runs on port 8080 behind nginx at `artifacts.innovatingwithcapella.com`.
 
 The viewer is multi-tenant: each visitor's browser gets its own signed-cookie session, and within a session you can add multiple repos (your own GitHub PAT for each is your access control — no separate accounts). Nothing is written to disk per visitor except their own git clones under `/var/lib/kp-viewer/sessions/`.
 
@@ -11,7 +11,7 @@ The viewer is multi-tenant: each visitor's browser gets its own signed-cookie se
 - SSH access to the droplet
 - DNS A record for `artifacts.innovatingwithcapella.com` pointing to the droplet IP
 - `certbot` already installed (used for `repo.innovatingwithcapella.com`)
-- The existing `kp-artifact-repo` service running (viewer shares the venv)
+- The existing `kp-knowledge-repo` service running (viewer shares the venv)
 
 ---
 
