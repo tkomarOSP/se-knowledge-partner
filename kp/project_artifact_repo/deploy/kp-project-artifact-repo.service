@@ -1,0 +1,16 @@
+[Unit]
+Description=KP Project Artifact Repository MCP Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/knowledge_partner
+ExecStart=/opt/knowledge_partner/.venv/bin/python -m project_artifact_repo
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/kp-project-artifact-repo/mcp-access.log
+StandardError=append:/var/log/kp-project-artifact-repo/mcp-error.log
+
+[Install]
+WantedBy=multi-user.target

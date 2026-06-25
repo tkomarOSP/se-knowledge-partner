@@ -7,12 +7,19 @@ model access via a separate `capella-fabric` MCP server.
 
 ## Layout
 
-- `kp/artifact_repo/` — MCP server: git-backed, Pydantic-typed knowledge artifact store (tables, YAML, text, HTML, log books, routine_def, etc.)
-- `kp/viewer/` — read-only FastAPI web app for browsing artifacts in a browser (log book timelines, routine viewers, multi-repo sessions)
+- `kp/artifact_repo/` — knowledge_repo MCP server: git-backed, indexed-entry store for the 4 Knowledge-layer types (observation, decision, lesson_learned, routine_def)
+- `kp/workspace_manager/` — MCP server owning the general typed-artifact system (table, yaml, text, html, arcadia_fabric, session_summary, prompt_def, prompt, json) and per-routine-execution workspace branches
+- `kp/project_artifact_repo/` — minimal destination-layer MCP server for promoted workspace outputs (Layer 3: FMEA, Pugh, trade studies); reuses workspace_manager's store/types rather than re-implementing them
+- `kp/viewer/` — read-only FastAPI web app for browsing artifacts and workspace branches in a browser (log book timelines, routine viewers, multi-repo sessions, branch switching)
 - `kp/prompt_library/` — MCP server for Jinja2 prompt_def templates
 - `kp/session_manager/` — MCP server for structured session state
-- `kp/kp_agent/` — LangGraph-based agent orchestrator
+- `kp/kp_agent/` — LangGraph-based agent orchestrator, including the routine execution engine (`routine_engine.py`)
 - `docs/SE_Knowledge_Partner_System_Prompt_v3.md` — the system prompt that drives the SE Knowledge Partner agent across these MCP tools
+
+`artifact_repo`, `workspace_manager`, and `project_artifact_repo` are intentionally
+separate MCP servers/sessions — see the knowledge_repo rework decision log for why
+(layer separation, and never mixing artifact writes into a repo `capella-fabric`
+also manages, which previously caused fast-forward conflicts).
 
 This repo is code-only — it has no `packages/` knowledge-artifact data of its own.
 The log book, issue tracking, and routine library live in the original
@@ -24,7 +31,8 @@ continue to point at.
 Each `kp/*` subpackage is independently installable in editable mode:
 
 ```bash
-pip install -e kp/artifact_repo -e kp/prompt_library -e kp/session_manager -e kp/kp_agent -e kp/viewer
+pip install -e kp/artifact_repo -e kp/workspace_manager -e kp/project_artifact_repo \
+    -e kp/prompt_library -e kp/session_manager -e kp/kp_agent -e kp/viewer
 ```
 
 See each subpackage's own docs for running it (e.g. `kp/viewer/deploy/DEPLOY.md`,
@@ -32,21 +40,28 @@ See each subpackage's own docs for running it (e.g. `kp/viewer/deploy/DEPLOY.md`
 
 ## Updating the droplet
 
-Both services run from the same clone at `/opt/knowledge_partner` on the
+All services run from the same clone at `/opt/knowledge_partner` on the
 Digital Ocean droplet. After pushing new code:
 
 ```bash
 cd /opt/knowledge_partner
 git pull
-sudo .venv/bin/pip install -e kp/artifact_repo -e kp/viewer   # only if dependencies changed
+sudo .venv/bin/pip install -e kp/artifact_repo -e kp/workspace_manager \
+    -e kp/project_artifact_repo -e kp/viewer   # only if dependencies changed
 sudo systemctl restart kp-artifact-repo
+sudo systemctl restart kp-workspace-manager
+sudo systemctl restart kp-project-artifact-repo
 sudo systemctl restart kp-viewer
 ```
 
-- `kp-artifact-repo` serves `repo.innovatingwithcapella.com` (port 8002)
+- `kp-artifact-repo` serves `repo.innovatingwithcapella.com` (port 8002) — knowledge_repo (4 Knowledge types)
+- `kp-workspace-manager` serves `workspace.innovatingwithcapella.com` (port 8005) — typed artifacts + workspace branches
+- `kp-project-artifact-repo` serves `project-artifacts.innovatingwithcapella.com` (port 8006) — promotion destination, depends on `kp-workspace-manager`
 - `kp-viewer` serves `artifacts.innovatingwithcapella.com` (port 8080)
 
-Restarting `kp-viewer` does **not** log out visitors as long as
+`kp-project-artifact-repo` imports `workspace_manager` directly rather than
+vendoring a copy — restart it too if `workspace_manager`'s store/types code
+changes. Restarting `kp-viewer` does **not** log out visitors as long as
 `KP_VIEWER_SESSION_SECRET` is fixed in `kp-viewer.service` — see
 `kp/viewer/deploy/DEPLOY.md` Step 4. Full setup and troubleshooting for each
 service lives in its own `deploy/DEPLOY.md`.

@@ -1,0 +1,16 @@
+[Unit]
+Description=KP Workspace Manager MCP Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/knowledge_partner
+ExecStart=/opt/knowledge_partner/.venv/bin/python -m workspace_manager
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/kp-workspace-manager/mcp-access.log
+StandardError=append:/var/log/kp-workspace-manager/mcp-error.log
+
+[Install]
+WantedBy=multi-user.target
