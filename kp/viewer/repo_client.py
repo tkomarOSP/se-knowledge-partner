@@ -163,9 +163,9 @@ class ViewerRepoClient:
         """Read one indexed entry (observation/decision/lesson_learned/routine_def/note/...)."""
         return self._require_store().entries.read_entry(package, entry_id)
 
-    def render_log_book(self, package: str, type_filter: Optional[str] = None) -> str:
-        """Assemble all indexed entries in a package into one chronological Markdown doc."""
-        return self._require_store().entries.render_log_book(package, type_filter=type_filter)
+    def list_entries(self, package: str, type_filter: Optional[str] = None) -> list[dict[str, Any]]:
+        """List indexed-entry records (id/type/timestamp/title/tags), newest first."""
+        return self._require_store().entries.list_entries(package, type_filter=type_filter)
 
     def get_versions(self, package: str, artifact_id: str) -> list[dict]:
         return self._require_store().get_artifact_versions(artifact_id)

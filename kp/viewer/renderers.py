@@ -137,6 +137,30 @@ def parse_entry_md(full_md: str) -> tuple[str, str]:
     return author, render_markdown(body.strip())
 
 
+def log_entry_from_record(record: dict, full_md: str, sequence: int = 0) -> LogEntry:
+    """Build a LogEntry directly from an indexed-entries record + its file content.
+
+    Unlike parse_log_book, this never joins entries into one Markdown blob and
+    re-splits on '---' — so a '---' horizontal rule inside an entry's own body
+    text can't be mistaken for an entry boundary and truncate it.
+    """
+    author, body_html = parse_entry_md(full_md)
+    ts_iso = record["timestamp"]
+    try:
+        ts = datetime.strptime(ts_iso, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    except ValueError:
+        ts = datetime.min.replace(tzinfo=timezone.utc)
+    return LogEntry(
+        timestamp=ts,
+        timestamp_str=_format_ts(ts),
+        timestamp_iso=ts_iso,
+        entry_type=record["type"],
+        body_html=body_html,
+        sequence=sequence,
+        author=author,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Routine def parser
 # ---------------------------------------------------------------------------

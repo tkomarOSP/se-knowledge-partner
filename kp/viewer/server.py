@@ -25,6 +25,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from viewer.renderers import (
     badge_class,
+    log_entry_from_record,
     parse_entry_md,
     parse_log_book,
     parse_routine_def,
@@ -304,16 +305,30 @@ async def package_view(
 
 @app.get("/{package}/log", response_class=HTMLResponse)
 async def log_view(request: Request, package: str, filter_type: Optional[str] = None):
-    """Assembled chronological view over observation/decision/lesson_learned/note
-    entries — newest first. Replaces the old monolithic log_book artifact."""
+    """Chronological view over observation/decision/lesson_learned/note entries —
+    newest first. Reads each entry's own file directly (rather than assembling
+    all entries into one Markdown blob and re-splitting on '---'), so a '---'
+    horizontal rule inside an entry's body can't be mistaken for an entry
+    boundary and truncate it. Replaces the old monolithic log_book artifact."""
     client = _get_active_client(request)
     if client is None:
         return RedirectResponse(url="/setup", status_code=303)
     try:
-        content_str = client.render_log_book(package)
+        records = client.list_entries(package)
     except Exception as exc:
         return HTMLResponse(f"<h1>Error</h1><p>{exc}</p>", status_code=404)
-    header_html, entries, type_counts = parse_log_book(content_str, filter_type=filter_type)
+
+    type_counts: dict[str, int] = {}
+    for r in records:
+        type_counts[r["type"]] = type_counts.get(r["type"], 0) + 1
+
+    shown = [r for r in records if not filter_type or r["type"] == filter_type]
+    entries = []
+    for seq, record in enumerate(shown, start=1):
+        full_md, _ = client.read_entry(package, record["id"])
+        entries.append(log_entry_from_record(record, full_md, sequence=seq))
+    entries.sort(key=lambda e: (e.timestamp, e.sequence), reverse=True)
+
     return _render(request, "log.html", {
         "package": package,
         "entries": entries,
