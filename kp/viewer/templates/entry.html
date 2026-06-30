@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{{ record.title }} — {{ package }}{% endblock %}
+
+{% block breadcrumb %}
+<span class="nav-sep">/</span>
+<a href="/{{ package }}" class="nav-crumb">{{ package }}</a>
+<span class="nav-sep">/</span>
+<span class="nav-crumb">{{ record.title }}</span>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">{{ record.title }}</h1>
+
+<div class="meta-bar">
+  <span class="entry-badge {{ badge_class(record.type) }}">{{ record.type }}</span>
+  <span>{{ record.timestamp | date }}</span>
+  {% if author %}<span>{{ author }}</span>{% endif %}
+  {% if record.tags %}<span>{% for t in record.tags %}#{{ t }} {% endfor %}</span>{% endif %}
+  <a href="/{{ package }}/{{ record.id }}/versions">Version history</a>
+  <a href="/{{ package }}/log">View full log</a>
+</div>
+
+<div class="card artifact-content">{{ body_html|safe }}</div>
+{% endblock %}

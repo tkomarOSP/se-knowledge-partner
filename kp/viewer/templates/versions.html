@@ -1,17 +1,17 @@
 {% extends "base.html" %}
-{% block title %}History — {{ meta.name }}{% endblock %}
+{% block title %}History — {{ name }}{% endblock %}
 
 {% block breadcrumb %}
 <span class="nav-sep">/</span>
 <a href="/{{ package }}" class="nav-crumb">{{ package }}</a>
 <span class="nav-sep">/</span>
-<a href="/{{ package }}/{{ meta.artifact_id }}" class="nav-crumb">{{ meta.name }}</a>
+<a href="/{{ package }}/{{ artifact_id }}" class="nav-crumb">{{ name }}</a>
 <span class="nav-sep">/</span>
 <span class="nav-crumb">versions</span>
 {% endblock %}
 
 {% block content %}
-<h1 class="page-title">{{ meta.name }}</h1>
+<h1 class="page-title">{{ name }}</h1>
 <p class="page-subtitle">{{ versions|length }} commit{% if versions|length != 1 %}s{% endif %}</p>
 
 {% if not versions %}

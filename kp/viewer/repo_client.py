@@ -97,17 +97,36 @@ class ViewerRepoClient:
             raise RuntimeError("Repo not cloned. Call ensure_cloned() first.")
         return self._store
 
+    @staticmethod
+    def _entry_as_artifact(e: dict[str, Any]) -> dict[str, Any]:
+        """Normalize an indexed-entries record to the same shape as a legacy artifact dict."""
+        return {
+            "artifact_id": e["id"],
+            "name": e["title"],
+            "type": e["type"],
+            "updated_at": e["timestamp"],
+            "tags": e.get("tags", []),
+        }
+
     def list_packages_with_counts(self) -> list[dict]:
         store = self._require_store()
         packages = store.list_packages()
         result = []
         for pkg in packages:
             artifacts = store.list_artifacts(pkg)
+            entries = store.entries.list_entries(pkg)
             type_counts: dict[str, int] = {}
             for a in artifacts:
                 t = a.get("type", "unknown")
                 type_counts[t] = type_counts.get(t, 0) + 1
-            result.append({"name": pkg, "count": len(artifacts), "type_counts": type_counts})
+            for e in entries:
+                t = e.get("type", "unknown")
+                type_counts[t] = type_counts.get(t, 0) + 1
+            result.append({
+                "name": pkg,
+                "count": len(artifacts) + len(entries),
+                "type_counts": type_counts,
+            })
         return result
 
     def list_artifacts(
@@ -117,27 +136,55 @@ class ViewerRepoClient:
         name_filter: Optional[str] = None,
         limit: int = 200,
     ) -> list[dict[str, Any]]:
-        return self._require_store().list_artifacts(
-            package, type_filter=type_filter, name_filter=name_filter, limit=limit
-        )
+        """List legacy artifacts and indexed entries together, newest first."""
+        store = self._require_store()
+        legacy = store.list_artifacts(package, type_filter=type_filter, name_filter=name_filter, limit=limit)
+        entries = [
+            self._entry_as_artifact(e)
+            for e in store.entries.list_entries(package, type_filter=type_filter)
+            if not name_filter or name_filter.lower() in e["title"].lower()
+        ]
+        combined = legacy + entries
+        combined.sort(key=lambda x: x.get("updated_at", ""), reverse=True)
+        return combined[:limit]
 
     def list_types(self, package: str) -> list[str]:
-        artifacts = self._require_store().list_artifacts(package)
-        types = sorted({a.get("type", "unknown") for a in artifacts})
-        return types
+        store = self._require_store()
+        legacy_types = {a.get("type", "unknown") for a in store.list_artifacts(package)}
+        entry_types = {e.get("type", "unknown") for e in store.entries.list_entries(package)}
+        return sorted(legacy_types | entry_types)
 
     def read_artifact(self, package: str, artifact_id: str) -> tuple[str, ArtifactMetadata]:
         store = self._require_store()
         content_str, meta = store.read_content_str(package, artifact_id)
         return content_str, meta
 
+    def read_entry(self, package: str, entry_id: str) -> tuple[str, dict[str, Any]]:
+        """Read one indexed entry (observation/decision/lesson_learned/routine_def/note/...)."""
+        return self._require_store().entries.read_entry(package, entry_id)
+
+    def render_log_book(self, package: str, type_filter: Optional[str] = None) -> str:
+        """Assemble all indexed entries in a package into one chronological Markdown doc."""
+        return self._require_store().entries.render_log_book(package, type_filter=type_filter)
+
     def get_versions(self, package: str, artifact_id: str) -> list[dict]:
         return self._require_store().get_artifact_versions(artifact_id)
+
+    def get_entry_versions(self, package: str, entry_id: str) -> list[dict]:
+        return self._require_store().get_entry_versions(package, entry_id)
 
     def search(
         self, package: str, query: str, type_filter: Optional[str] = None
     ) -> list[dict[str, Any]]:
-        return self._require_store().search_artifacts(package, query, type_filter=type_filter)
+        store = self._require_store()
+        legacy = store.search_artifacts(package, query, type_filter=type_filter)
+        entries = [
+            self._entry_as_artifact(e)
+            for e in store.entries.search_entries(package, query=query, type_filter=type_filter)
+        ]
+        combined = legacy + entries
+        combined.sort(key=lambda x: x.get("updated_at", ""), reverse=True)
+        return combined
 
     # ------------------------------------------------------------------
     # Branch switching / workspace rendering

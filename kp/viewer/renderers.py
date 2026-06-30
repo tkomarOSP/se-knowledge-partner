@@ -126,6 +126,17 @@ def parse_log_book(content: str, filter_type: Optional[str] = None) -> tuple[str
     return header_html, entries, type_counts
 
 
+def parse_entry_md(full_md: str) -> tuple[str, str]:
+    """Split one entries/*.md file into (author, body_html), stripping its YAML frontmatter."""
+    body = full_md.split("---\n\n", 1)[-1] if full_md.startswith("---\n") else full_md
+    author = ""
+    for line in full_md.splitlines():
+        if line.startswith("author:"):
+            author = line.split(":", 1)[1].strip()
+            break
+    return author, render_markdown(body.strip())
+
+
 # ---------------------------------------------------------------------------
 # Routine def parser
 # ---------------------------------------------------------------------------

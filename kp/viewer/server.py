@@ -25,6 +25,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from viewer.renderers import (
     badge_class,
+    parse_entry_md,
     parse_log_book,
     parse_routine_def,
     render_artifact_content,
@@ -301,6 +302,26 @@ async def package_view(
     })
 
 
+@app.get("/{package}/log", response_class=HTMLResponse)
+async def log_view(request: Request, package: str, filter_type: Optional[str] = None):
+    """Assembled chronological view over observation/decision/lesson_learned/note
+    entries — newest first. Replaces the old monolithic log_book artifact."""
+    client = _get_active_client(request)
+    if client is None:
+        return RedirectResponse(url="/setup", status_code=303)
+    try:
+        content_str = client.render_log_book(package)
+    except Exception as exc:
+        return HTMLResponse(f"<h1>Error</h1><p>{exc}</p>", status_code=404)
+    header_html, entries, type_counts = parse_log_book(content_str, filter_type=filter_type)
+    return _render(request, "log.html", {
+        "package": package,
+        "entries": entries,
+        "type_counts": type_counts,
+        "filter_type": filter_type or "",
+    })
+
+
 @app.get("/{package}/{artifact_id}/versions", response_class=HTMLResponse)
 async def versions_view(request: Request, package: str, artifact_id: str):
     client = _get_active_client(request)
@@ -309,11 +330,18 @@ async def versions_view(request: Request, package: str, artifact_id: str):
     try:
         _, meta = client.read_artifact(package, artifact_id)
         versions = client.get_versions(package, artifact_id)
-    except Exception as exc:
-        return HTMLResponse(f"<h1>Error</h1><p>{exc}</p>", status_code=404)
+        name = meta.name
+    except Exception:
+        try:
+            _, record = client.read_entry(package, artifact_id)
+            versions = client.get_entry_versions(package, artifact_id)
+            name = record["title"]
+        except Exception as exc:
+            return HTMLResponse(f"<h1>Error</h1><p>{exc}</p>", status_code=404)
     return _render(request, "versions.html", {
         "package": package,
-        "meta": meta,
+        "artifact_id": artifact_id,
+        "name": name,
         "versions": versions,
     })
 
@@ -330,8 +358,18 @@ async def artifact_view(
         return RedirectResponse(url="/setup", status_code=303)
     try:
         content_str, meta = client.read_artifact(package, artifact_id)
-    except Exception as exc:
-        return HTMLResponse(f"<h1>Error</h1><p>{exc}</p>", status_code=404)
+    except Exception:
+        try:
+            full_md, record = client.read_entry(package, artifact_id)
+        except Exception as exc:
+            return HTMLResponse(f"<h1>Error</h1><p>{exc}</p>", status_code=404)
+        author, body_html = parse_entry_md(full_md)
+        return _render(request, "entry.html", {
+            "package": package,
+            "record": record,
+            "author": author,
+            "body_html": body_html,
+        })
 
     if meta.type == "log_book":
         header_html, entries, type_counts = parse_log_book(content_str, filter_type=filter_type)

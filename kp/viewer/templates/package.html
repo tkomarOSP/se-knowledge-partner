@@ -7,7 +7,7 @@
 {% endblock %}
 
 {% block content %}
-<h1 class="page-title">{{ package }}</h1>
+<h1 class="page-title">{{ package }} <a href="/{{ package }}/log" style="font-size:0.7rem;font-weight:500;margin-left:0.5rem;">View Log →</a></h1>
 
 <form method="get" action="/{{ package }}" class="filter-bar">
   <input type="text" name="q" value="{{ q }}" placeholder="Search artifacts…">
