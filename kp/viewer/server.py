@@ -127,7 +127,7 @@ def _derive_alias(repo_url: str, existing: set[str]) -> str:
     return alias
 
 
-def _render(request: Request, name: str, context: dict) -> HTMLResponse:
+def _render(request: Request, name: str, context: dict, status_code: int = 200) -> HTMLResponse:
     client = _get_active_client(request)
     try:
         nav_branches = client.list_branches() if client else []
@@ -140,7 +140,7 @@ def _render(request: Request, name: str, context: dict) -> HTMLResponse:
         "nav_branches": nav_branches,
         "active_branch": client.branch if client else None,
     }
-    return templates.TemplateResponse(request, name, context)
+    return templates.TemplateResponse(request, name, context, status_code=status_code)
 
 
 # ---------------------------------------------------------------------------
@@ -351,8 +351,11 @@ async def versions_view(request: Request, package: str, artifact_id: str):
             _, record = client.read_entry(package, artifact_id)
             versions = client.get_entry_versions(package, artifact_id)
             name = record["title"]
-        except Exception as exc:
-            return HTMLResponse(f"<h1>Error</h1><p>{exc}</p>", status_code=404)
+        except Exception:
+            return _render(request, "not_found.html", {
+                "package": package,
+                "artifact_id": artifact_id,
+            }, status_code=404)
     return _render(request, "versions.html", {
         "package": package,
         "artifact_id": artifact_id,
@@ -376,8 +379,11 @@ async def artifact_view(
     except Exception:
         try:
             full_md, record = client.read_entry(package, artifact_id)
-        except Exception as exc:
-            return HTMLResponse(f"<h1>Error</h1><p>{exc}</p>", status_code=404)
+        except Exception:
+            return _render(request, "not_found.html", {
+                "package": package,
+                "artifact_id": artifact_id,
+            }, status_code=404)
         author, body_html = parse_entry_md(full_md)
         return _render(request, "entry.html", {
             "package": package,

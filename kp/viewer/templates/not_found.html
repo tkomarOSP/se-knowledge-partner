@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Entry Not Found — {{ package }}{% endblock %}
+
+{% block breadcrumb %}
+<span class="nav-sep">/</span>
+<a href="/{{ package }}" class="nav-crumb">{{ package }}</a>
+<span class="nav-sep">/</span>
+<span class="nav-crumb" style="opacity:.6">{{ artifact_id[:16] }}…</span>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Entry Not Found</h1>
+
+<div class="card" style="border-left:3px solid #f59e0b;">
+  <p style="margin:0 0 .75rem;color:#1e293b;">
+    Entry <code style="font-size:.82em;background:#f8fafc;border:1px solid #e2e8f0;padding:.1em .35em;border-radius:3px;">{{ artifact_id }}</code>
+    was not found in the <strong>{{ package }}</strong> package.
+  </p>
+  <p style="margin:0;font-size:.875rem;color:#475569;">
+    This usually means the entry was written after your local clone was created.
+    Try <strong>Refresh</strong> to pull the latest commits — if the entry still doesn't
+    appear, use <strong>Reclone</strong> to start from scratch.
+  </p>
+</div>
+
+<div style="display:flex;gap:.75rem;margin-top:1.25rem;">
+  <form method="post" action="/refresh">
+    <button type="submit" class="refresh-btn" style="font-size:.95rem;padding:.5rem 1.25rem;">
+      ↻ Refresh &amp; Retry
+    </button>
+  </form>
+  <form method="post" action="/reclone"
+        onsubmit="return confirm('Delete the local clone and re-clone from scratch?');">
+    <button type="submit" class="refresh-btn" style="font-size:.95rem;padding:.5rem 1.25rem;">
+      ⟳ Reclone
+    </button>
+  </form>
+</div>
+{% endblock %}
